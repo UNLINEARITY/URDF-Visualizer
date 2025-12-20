@@ -1,0 +1,73 @@
+:root {
+  font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+
+  color-scheme: light dark;
+  color: rgba(255, 255, 255, 0.87);
+  background-color: #242424;
+}
+
+body {
+  margin: 0;
+  display: flex;
+  place-items: center;
+  min-width: 320px;
+  min-height: 100vh;
+}
+
+#root {
+  width: 100vw;
+  height: 100vh;
+  margin: 0;
+  padding: 0;
+  text-align: center;
+}
+
+canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.app-container {
+  display: flex;
+  width: 100%;
+  height: 100%;
+}
+
+.viewer-container {
+  flex-grow: 1;
+  position: relative;
+}
+
+.ui-container {
+  width: 350px;
+  flex-shrink: 0;
+  background-color: #1a1a1a;
+  padding: 1rem;
+  box-sizing: border-box;
+  overflow-y: auto;
+  text-align: left;
+}
+
+.file-input {
+    display: block;
+    margin-bottom: 2rem;
+}
+
+.controls-container h3 {
+    margin-top: 0;
+}
+
+.loading-indicator {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    color: white;
+    font-size: 1.5rem;
+    background-color: rgba(0,0,0,0.5);
+    padding: 1rem;
+    border-radius: 8px;
+}
