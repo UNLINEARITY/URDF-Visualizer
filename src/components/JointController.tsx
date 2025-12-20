@@ -14,7 +14,7 @@ const JointController: React.FC<JointControllerProps> = ({ robot }) => {
   const [jointAngles, setJointAngles] = useState<Record<string, number>>(() => {
     const initialState: Record<string, number> = {};
     movableJoints.forEach((joint) => {
-      initialState[joint.name] = robot.getJointValue(joint.name);
+      initialState[joint.name] = joint.angle || 0;
     });
     return initialState;
   });
@@ -28,7 +28,7 @@ const JointController: React.FC<JointControllerProps> = ({ robot }) => {
     // Reset angles when robot changes
     const initialState: Record<string, number> = {};
     movableJoints.forEach((joint) => {
-      initialState[joint.name] = robot.getJointValue(joint.name);
+      initialState[joint.name] = joint.angle || 0;
     });
     setJointAngles(initialState);
   }, [robot]);
