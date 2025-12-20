@@ -57,6 +57,8 @@ const Viewer: React.FC<ViewerProps> = ({ robot }) => {
 
     if (robot) {
       currentRobot = robot;
+      // Adjust the robot's orientation from Z-up to Y-up
+      currentRobot.rotation.x = -Math.PI / 2;
       scene.add(currentRobot);
     }
     

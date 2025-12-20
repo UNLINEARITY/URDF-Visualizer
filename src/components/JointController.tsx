@@ -6,32 +6,28 @@ interface JointControllerProps {
 }
 
 const JointController: React.FC<JointControllerProps> = ({ robot }) => {
-  // Find only the movable joints (revolute, continuous, prismatic)
   const movableJoints = Object.values(robot.joints).filter(
     (joint) => joint.jointType !== 'fixed'
   );
 
-  const [jointAngles, setJointAngles] = useState<Record<string, number>>(() => {
+  const getInitialState = () => {
     const initialState: Record<string, number> = {};
     movableJoints.forEach((joint) => {
       initialState[joint.name] = joint.angle || 0;
     });
     return initialState;
-  });
+  };
+
+  const [jointValues, setJointValues] = useState<Record<string, number>>(getInitialState);
+
+  useEffect(() => {
+    setJointValues(getInitialState());
+  }, [robot]);
 
   const handleSliderChange = (jointName: string, value: number) => {
     robot.setJointValue(jointName, value);
-    setJointAngles((prev) => ({ ...prev, [jointName]: value }));
+    setJointValues((prev) => ({ ...prev, [jointName]: value }));
   };
-
-  useEffect(() => {
-    // Reset angles when robot changes
-    const initialState: Record<string, number> = {};
-    movableJoints.forEach((joint) => {
-      initialState[joint.name] = joint.angle || 0;
-    });
-    setJointAngles(initialState);
-  }, [robot]);
 
   if (movableJoints.length === 0) {
     return <div>No movable joints found.</div>;
@@ -41,17 +37,40 @@ const JointController: React.FC<JointControllerProps> = ({ robot }) => {
     <div className="controls-container">
       <h3>Joint Controls</h3>
       {movableJoints.map((joint: URDFJoint) => {
-        const angle = jointAngles[joint.name] ?? 0;
-        const limit = joint.limit || { lower: -Math.PI, upper: Math.PI };
-        
-        // For continuous joints, the limit is not defined, so we provide a reasonable default range.
-        const min = joint.jointType === 'continuous' ? -Math.PI : limit.lower || -Math.PI;
-        const max = joint.jointType === 'continuous' ? Math.PI : limit.upper || Math.PI;
+        const currentValue = jointValues[joint.name] ?? 0;
+        const limit = joint.limit || { lower: 0, upper: 0 };
+        let label = '';
+        let min = 0;
+        let max = 0;
+        let step = 0.01;
+
+        switch (joint.jointType) {
+          case 'revolute':
+            label = `${joint.name} (${(currentValue * 180 / Math.PI).toFixed(1)}°)`;
+            min = limit.lower;
+            max = limit.upper;
+            step = (max - min) / 200;
+            break;
+          case 'continuous':
+            label = `${joint.name} (${(currentValue * 180 / Math.PI).toFixed(1)}°)`;
+            min = -Math.PI;
+            max = Math.PI;
+            step = (max - min) / 200;
+            break;
+          case 'prismatic':
+            label = `${joint.name} (${currentValue.toFixed(3)} m)`;
+            min = limit.lower;
+            max = limit.upper;
+            step = (max - min) / 200;
+            break;
+          default:
+            return null; // Don't render sliders for 'fixed', 'floating', etc.
+        }
 
         return (
           <div key={joint.name} style={{ marginBottom: '1rem' }}>
             <label htmlFor={joint.name}>
-              {joint.name} ({(angle * 180 / Math.PI).toFixed(1)}°)
+              {label}
             </label>
             <input
               type="range"
@@ -59,8 +78,8 @@ const JointController: React.FC<JointControllerProps> = ({ robot }) => {
               name={joint.name}
               min={min}
               max={max}
-              step="0.01"
-              value={angle}
+              step={step}
+              value={currentValue}
               onChange={(e) => handleSliderChange(joint.name, parseFloat(e.target.value))}
               style={{ width: '100%' }}
             />
