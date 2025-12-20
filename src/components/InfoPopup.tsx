@@ -117,11 +117,32 @@ const InfoPopup: React.FC<InfoPopupProps> = ({ name, matrix, joint, value, onJoi
       const step = isRevolute ? 0.01 : 0.001;
       const unit = isRevolute ? 'rad' : 'm';
       const displayValue = value ?? 0;
+      
+      const parentName = (joint.parent as any)?.name || 'None';
+      
+      let childName = 'None';
+      // urdf-loader strategy: Check explicit property or children array
+      if ((joint as any).child) {
+          childName = (joint as any).child.name;
+      } else {
+          // In Three.js graph, the child link is added as a child of the joint object
+          const childLink = joint.children.find(c => (c as any).isURDFLink);
+          if (childLink) childName = childLink.name;
+      }
+
+      const axis = joint.axis ? `${joint.axis.x}, ${joint.axis.y}, ${joint.axis.z}` : 'N/A';
 
       content = (
           <div className="info-popup-content">
               <div className="matrix-section">
-                  <h5>Joint Control ({joint.jointType})</h5>
+                  <h5>Joint Info</h5>
+                  <p><strong>Type:</strong> {joint.jointType}</p>
+                  <p><strong>Parent:</strong> {parentName}</p>
+                  <p><strong>Child:</strong> {childName}</p>
+                  <p><strong>Axis:</strong> {axis}</p>
+              </div>
+              <div className="matrix-section">
+                  <h5>Control</h5>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                       <span>{min.toFixed(2)}</span>
                       <input 
