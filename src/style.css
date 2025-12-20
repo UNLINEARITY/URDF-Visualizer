@@ -60,6 +60,20 @@ canvas {
     margin-top: 0;
 }
 
+.display-options-container {
+    margin-top: 1rem;
+}
+
+.option-item {
+    display: flex;
+    align-items: center;
+    margin-bottom: 0.5rem;
+}
+
+.option-item input {
+    margin-right: 0.5rem;
+}
+
 .loading-indicator {
     position: absolute;
     top: 50%;
