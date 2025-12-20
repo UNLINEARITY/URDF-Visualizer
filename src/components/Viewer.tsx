@@ -6,6 +6,7 @@ import { URDFRobot, URDFJoint, URDFLink } from 'urdf-loader';
 interface ViewerProps {
   robot: URDFRobot | null;
   isCtrlPressed: boolean;
+  selectedLinkName: string | null;
   selectedJoint: URDFJoint | null;
   showWorldAxes: boolean;
   showGrid: boolean;
@@ -18,7 +19,7 @@ interface ViewerProps {
 }
 
 const Viewer: React.FC<ViewerProps> = (props) => {
-  const { robot, isCtrlPressed, selectedJoint, showWorldAxes, showGrid, showLinkAxes, showJointAxes, wireframe, onSelectionUpdate, onJointSelect, onMatrixUpdate } = props;
+  const { robot, isCtrlPressed, selectedLinkName, selectedJoint, showWorldAxes, showGrid, showLinkAxes, showJointAxes, wireframe, onSelectionUpdate, onJointSelect, onMatrixUpdate } = props;
   const mountRef = useRef<HTMLDivElement>(null);
 
   // Refs for three.js objects
@@ -95,6 +96,13 @@ const Viewer: React.FC<ViewerProps> = (props) => {
           }
       }
   }, [selectedJoint]);
+
+  // Sync internal link selection with prop (e.g. when closed from UI)
+  useEffect(() => {
+      if (selectedLinkName === null && selectedLinkRef.current !== null) {
+          unhighlightLink();
+      }
+  }, [selectedLinkName]);
   
   // 1. Scene Initialization
   useEffect(() => {

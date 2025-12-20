@@ -359,7 +359,8 @@ function App() {
         <Viewer
           robot={robot}
           isCtrlPressed={isCtrlPressed}
-          selectedJoint={jointSelection.joint}
+          selectedLinkName={linkSelection.visible ? linkSelection.name : null}
+          selectedJoint={jointSelection.visible ? jointSelection.joint : null}
           showWorldAxes={showWorldAxes}
           showGrid={showGrid}
           showLinkAxes={showLinkAxes}
