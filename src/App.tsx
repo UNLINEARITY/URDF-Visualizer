@@ -7,6 +7,7 @@ import DisplayOptions from './components/DisplayOptions';
 
 function App() {
   const [robot, setRobot] = useState<URDFRobot | null>(null);
+  const [urdfContent, setUrdfContent] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -19,10 +20,58 @@ function App() {
   const [wireframe, setWireframe] = useState(false);
   const [hasCollision, setHasCollision] = useState(false);
 
+  // Effect to parse the robot model whenever the content or collision toggle changes
+  useEffect(() => {
+    if (!urdfContent) return;
+
+    setLoading(true);
+    setError(null);
+    setRobot(null);
+
+    // Use DOMParser to check for collision tags reliably
+    try {
+      const parser = new DOMParser();
+      const xml = parser.parseFromString(urdfContent, 'text/xml');
+      const collisionNodes = xml.querySelectorAll('collision');
+      setHasCollision(collisionNodes.length > 0);
+    } catch (e) {
+      console.error('Failed to parse URDF for collision check', e);
+      setHasCollision(false);
+    }
+    
+    // Defer the parsing to allow the UI to update
+    setTimeout(() => {
+      const manager = new THREE.LoadingManager();
+      const loader = new URDFLoader(manager);
+      loader.loadCollision = showCollision;
+
+      manager.onLoad = () => setLoading(false);
+      manager.onError = (url) => {
+        setError(`Failed to load resource: ${url}`);
+        setLoading(false);
+      };
+
+      try {
+        const loadedRobot = loader.parse(urdfContent);
+        setRobot(loadedRobot);
+      } catch (err) {
+        console.error('Error parsing URDF:', err);
+        setError('Failed to parse URDF file. Check content for errors.');
+        setLoading(false);
+      }
+
+      if (!manager.isLoading) {
+        setLoading(false);
+      }
+    }, 10);
+
+  }, [urdfContent, showCollision]);
+
+
   // Keyboard shortcuts effect
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (document.activeElement?.tagName === 'INPUT') return; // Ignore when typing in inputs
+      if (document.activeElement?.tagName === 'INPUT') return;
       switch (e.key.toLowerCase()) {
         case 'w': setShowWorldAxes(v => !v); break;
         case 'g': setShowGrid(v => !v); break;
@@ -36,92 +85,45 @@ function App() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [hasCollision]);
 
+
   const handleFileChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
-      setLoading(true);
-      setError(null);
-      setRobot(null);
-      setHasCollision(false);
-
       const reader = new FileReader();
       reader.onload = (e) => {
-        const urdfContent = e.target?.result as string;
-        
-        const manager = new THREE.LoadingManager();
-        const loader = new URDFLoader(manager);
-        loader.loadCollision = true; // Enable loading collision geometry
-
-        const workingPath = THREE.LoaderUtils.extractUrlBase(file.name);
-        loader.workingPath = workingPath;
-
-        manager.onLoad = () => {
-          console.log('All resources loaded successfully.');
-          setLoading(false);
-        };
-
-        manager.onError = (url) => {
-          console.error(`Error loading resource: ${url}`);
-          setError(`Failed to load a resource: ${url}. If loading a model with meshes, ensure all resource files (e.g., .stl, .dae) are in the same folder as the URDF file.`);
-          setLoading(false);
-        };
-
-        try {
-          const loadedRobot = loader.parse(urdfContent);
-          setRobot(loadedRobot);
-          setHasCollision(!!loadedRobot.collision);
-          console.log("URDF parsed successfully.");
-          if (!manager.isLoading) {
-            setLoading(false);
-          }
-        } catch (err) {
-          console.error('Error parsing URDF:', err);
-          setError('Failed to parse URDF file. Check content for errors.');
-          setLoading(false);
-        }
+        const content = e.target?.result as string;
+        // Setting the content will trigger the main useEffect
+        setUrdfContent(content);
       };
       reader.onerror = () => {
         setError('Failed to read file.');
-        setLoading(false);
       };
       reader.readAsText(file);
     }
   }, []);
-  
+
   const loadSample = useCallback(() => {
     setLoading(true);
-    setError(null);
-    setRobot(null);
-    setHasCollision(false);
-
-    const manager = new THREE.LoadingManager();
-    const loader = new URDFLoader(manager);
-    loader.loadCollision = true; // Enable loading collision geometry
-
-    manager.onLoad = () => setLoading(false);
-    manager.onError = (url) => {
-        console.error('Error loading sample robot resource:', url);
-        setError('Failed to load a resource for the sample URDF.');
-        setLoading(false);
-    };
-
-    loader.load(
-      'sample.urdf',
-      (loadedRobot) => {
-        console.log("Sample robot loaded successfully", loadedRobot);
-        setRobot(loadedRobot);
-        setHasCollision(!!loadedRobot.collision);
-        if(!manager.isLoading) {
-            setLoading(false);
+    // Setting showCollision to false ensures we load the visual model first
+    if (showCollision) {
+      setShowCollision(false);
+    }
+    fetch('sample.urdf')
+      .then(res => {
+        if (!res.ok) {
+          throw new Error(`HTTP error! status: ${res.status}`);
         }
-      },
-      undefined,
-      () => {
-        setError('Failed to load the sample URDF. Check console for details.');
+        return res.text();
+      })
+      .then(content => {
+        setUrdfContent(content);
+      })
+      .catch(err => {
+        console.error('Failed to fetch sample.urdf:', err);
+        setError('Failed to fetch sample.urdf.');
         setLoading(false);
-      }
-    );
-  }, []);
+      });
+  }, [showCollision]);
 
 
   return (
@@ -153,7 +155,7 @@ function App() {
           showGrid={showGrid}
           showLinkAxes={showLinkAxes}
           showJointAxes={showJointAxes}
-          showCollision={showCollision}
+          showCollision={showCollision} // This prop is now somewhat redundant but keep for consistency
           wireframe={wireframe}
         />
       </div>

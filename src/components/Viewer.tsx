@@ -78,60 +78,72 @@ const Viewer: React.FC<ViewerProps> = (props) => {
     };
   }, []);
 
-  // Effect for handling the robot and its display options
+  // Effect for adding and removing the robot from the scene
   useEffect(() => {
     const scene = sceneRef.current;
     if (!scene) return;
 
-    let currentRobot: URDFRobot | null = null;
-    
-    // Add new robot if it exists
     if (robot) {
-      currentRobot = robot;
-      currentRobot.rotation.x = -Math.PI / 2;
-      scene.add(currentRobot);
+      robot.rotation.x = -Math.PI / 2;
+      scene.add(robot);
 
-      // Apply display options
-      if (currentRobot.visual) {
-        currentRobot.visual.visible = !showCollision;
+      return () => {
+        // Remove all dynamically added helpers
+        robot.traverse(c => {
+          const axes = c.getObjectByName('axes-helper');
+          if (axes) {
+            c.remove(axes);
+          }
+        });
+        scene.remove(robot);
       }
-      if (currentRobot.collision) {
-        currentRobot.collision.visible = showCollision;
-      }
-
-      for (const name in currentRobot.joints) {
-        const joint = currentRobot.joints[name];
-        const axes = joint.getObjectByName('axes');
-        if (axes) {
-          axes.visible = showJointAxes;
-        }
-      }
-
-      for (const name in currentRobot.links) {
-        const link = currentRobot.links[name];
-        const axes = link.getObjectByName('axes');
-        if (axes) {
-          axes.visible = showLinkAxes;
-        }
-      }
-      
-      currentRobot.traverse(c => {
-        if (c.isMesh) {
-          const materials = Array.isArray(c.material) ? c.material : [c.material];
-          materials.forEach(m => {
-            m.wireframe = wireframe;
-          });
-        }
-      });
     }
+  }, [robot]);
 
-    // Cleanup function to remove old robot
-    return () => {
-      if (currentRobot) {
-        scene.remove(currentRobot);
-      }
-    };
-  }, [robot, showJointAxes, showLinkAxes, showCollision, wireframe]);
+  // Effect for handling display options
+  useEffect(() => {
+    if (robot) {
+        // Wireframe
+        robot.traverse(c => {
+            if (c.isMesh) {
+              const materials = Array.isArray(c.material) ? c.material : [c.material];
+              materials.forEach(m => { m.wireframe = wireframe; });
+            }
+        });
+
+        // Joint Axes
+        for (const name in robot.joints) {
+            const joint = robot.joints[name];
+            let axes = joint.getObjectByName('axes-helper') as THREE.AxesHelper;
+            if (showJointAxes) {
+                if (!axes) {
+                    axes = new THREE.AxesHelper(0.1);
+                    axes.name = 'axes-helper';
+                    joint.add(axes);
+                }
+                axes.visible = true;
+            } else if (axes) {
+                axes.visible = false;
+            }
+        }
+
+        // Link Axes
+        for (const name in robot.links) {
+            const link = robot.links[name];
+            let axes = link.getObjectByName('axes-helper') as THREE.AxesHelper;
+            if (showLinkAxes) {
+                if (!axes) {
+                    axes = new THREE.AxesHelper(0.2);
+                    axes.name = 'axes-helper';
+                    link.add(axes);
+                }
+                axes.visible = true;
+            } else if (axes) {
+                axes.visible = false;
+            }
+        }
+    }
+  }, [robot, showCollision, showJointAxes, showLinkAxes, wireframe]);
 
   // Effect for toggling grid and axes helpers
   useEffect(() => {
