@@ -95,6 +95,16 @@ const InfoPopup: React.FC<InfoPopupProps> = ({ name, matrix, joint, value, onJoi
 
   // Render Content Logic
   let content;
+
+  // Correct the matrix for display to match URDF Z-up coordinates
+  // The Viewer rotates the robot by -90deg on X. We rotate back by +90deg.
+  const displayMatrix = React.useMemo(() => {
+      if (!matrix) return null;
+      const correction = new THREE.Matrix4().makeRotationX(Math.PI / 2);
+      // We apply the correction to the world matrix to align it back to Z-up
+      return correction.multiply(matrix);
+  }, [matrix]);
+
   if (joint) {
       // --- Control Mode ---
       const limitLower = Number(joint.limit.lower);
@@ -131,27 +141,27 @@ const InfoPopup: React.FC<InfoPopupProps> = ({ name, matrix, joint, value, onJoi
               </div>
           </div>
       );
-  } else if (matrix) {
+  } else if (displayMatrix) {
       // --- Matrix Info Mode ---
       const position = new THREE.Vector3();
       const quaternion = new THREE.Quaternion();
       const scale = new THREE.Vector3();
       const euler = new THREE.Euler();
 
-      matrix.decompose(position, quaternion, scale);
+      displayMatrix.decompose(position, quaternion, scale);
       euler.setFromQuaternion(quaternion, 'XYZ');
       const toDegrees = (rad: number) => (rad * 180 / Math.PI).toFixed(2);
       
       content = (
         <div className="info-popup-content">
             <div className="matrix-section">
-            <h5>Position (X, Y, Z):</h5>
+            <h5>Position (URDF Z-up):</h5>
             <p>X: {position.x.toFixed(4)}</p>
             <p>Y: {position.y.toFixed(4)}</p>
             <p>Z: {position.z.toFixed(4)}</p>
             </div>
             <div className="matrix-section">
-            <h5>Orientation (Roll, Pitch, Yaw - deg):</h5>
+            <h5>Orientation (RPY - deg):</h5>
             <p>Roll: {toDegrees(euler.x)}°</p>
             <p>Pitch: {toDegrees(euler.y)}°</p>
             <p>Yaw: {toDegrees(euler.z)}°</p>
