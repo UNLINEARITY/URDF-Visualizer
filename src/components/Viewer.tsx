@@ -15,11 +15,12 @@ interface ViewerProps {
   wireframe: boolean;
   onSelectionUpdate: (name: string | null, matrix: THREE.Matrix4 | null, parentMatrix: THREE.Matrix4 | null) => void;
   onJointSelect: (joint: URDFJoint) => void;
+  onJointChange: (name: string, value: number) => void;
   onMatrixUpdate: (matrix: THREE.Matrix4) => void;
 }
 
 const Viewer: React.FC<ViewerProps> = (props) => {
-  const { robot, isCtrlPressed, selectedLinkName, selectedJoint, showWorldAxes, showGrid, showLinkAxes, showJointAxes, wireframe, onSelectionUpdate, onJointSelect, onMatrixUpdate } = props;
+  const { robot, isCtrlPressed, selectedLinkName, selectedJoint, showWorldAxes, showGrid, showLinkAxes, showJointAxes, wireframe, onSelectionUpdate, onJointSelect, onJointChange, onMatrixUpdate } = props;
   const mountRef = useRef<HTMLDivElement>(null);
 
   // Refs for three.js objects
@@ -28,6 +29,7 @@ const Viewer: React.FC<ViewerProps> = (props) => {
   const axesRef = useRef<THREE.AxesHelper | null>(null);
   const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
+  const controlsRef = useRef<OrbitControls | null>(null);
   
   // Refs for selection and highlighting (LINK)
   const selectedLinkRef = useRef<URDFLink | null>(null);
@@ -39,6 +41,17 @@ const Viewer: React.FC<ViewerProps> = (props) => {
     opacity: 0.5,
     depthTest: false 
   }));
+
+  // --- DRAGGING STATE ---
+  const dragInfoRef = useRef<{
+      joint: URDFJoint;
+      startValue: number;
+      startMouseX: number;
+      startMouseY: number;
+      draggedMesh: THREE.Mesh | null;
+      originalMaterial: THREE.Material | THREE.Material[] | null;
+      worldClickPoint: THREE.Vector3;
+  } | null>(null);
 
   // Refs for selection and highlighting (JOINT)
   const selectedJointHelperRef = useRef<THREE.Mesh | null>(null);
@@ -54,12 +67,14 @@ const Viewer: React.FC<ViewerProps> = (props) => {
   const onMatrixUpdateRef = useRef(onMatrixUpdate);
   const onSelectionUpdateRef = useRef(onSelectionUpdate);
   const onJointSelectRef = useRef(onJointSelect);
+  const onJointChangeRef = useRef(onJointChange);
   const isCtrlPressedRef = useRef(isCtrlPressed);
   const robotRef = useRef<URDFRobot | null>(robot);
   
   useEffect(() => { onMatrixUpdateRef.current = onMatrixUpdate; }, [onMatrixUpdate]);
   useEffect(() => { onSelectionUpdateRef.current = onSelectionUpdate; }, [onSelectionUpdate]);
   useEffect(() => { onJointSelectRef.current = onJointSelect; }, [onJointSelect]);
+  useEffect(() => { onJointChangeRef.current = onJointChange; }, [onJointChange]);
   useEffect(() => { isCtrlPressedRef.current = isCtrlPressed; }, [isCtrlPressed]);
   useEffect(() => { robotRef.current = robot; }, [robot]);
 
@@ -124,6 +139,7 @@ const Viewer: React.FC<ViewerProps> = (props) => {
 
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
+    controlsRef.current = controls;
 
     scene.add(new THREE.AmbientLight(0xffffff, 0.6));
     const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
@@ -171,6 +187,170 @@ const Viewer: React.FC<ViewerProps> = (props) => {
       renderer.setSize(mountRef.current.clientWidth, mountRef.current.clientHeight);
     };
     window.addEventListener('resize', handleResize);
+
+    // --- INTERACTION HANDLERS ---
+
+    const getLinkFromEvent = (event: MouseEvent): URDFLink | null => {
+        if (!mountRef.current || !camera || !robotRef.current) return null;
+        
+        const rect = mountRef.current.getBoundingClientRect();
+        const x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+        const y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+        
+        raycaster.setFromCamera({ x, y }, camera);
+        const intersects = raycaster.intersectObject(robotRef.current, true);
+
+        // Search through ALL intersects to find the first valid Link
+        for (const intersect of intersects) {
+            let object: THREE.Object3D | null = intersect.object;
+            
+            // Skip helper objects
+            if (object.name.includes('helper') || object.name.includes('axes')) continue;
+
+            while (object) {
+                if ((object as any).isURDFLink) return object as URDFLink;
+                object = object.parent;
+            }
+        }
+        return null;
+    };
+
+    const handleMouseMoveHover = (event: MouseEvent) => {
+        if (dragInfoRef.current) return; // Don't change cursor during drag
+        
+        const link = getLinkFromEvent(event);
+        if (mountRef.current) {
+            mountRef.current.style.cursor = link ? 'pointer' : 'default';
+        }
+    };
+
+    const handleMouseDown = (event: MouseEvent) => {
+        // Only handle LEFT click for dragging
+        if (event.button !== 0 || isCtrlPressedRef.current) return;
+        if (!mountRef.current || !camera || !robotRef.current) return;
+
+        const rect = mountRef.current.getBoundingClientRect();
+        const x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+        const y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+        
+        raycaster.setFromCamera({ x, y }, camera);
+        const intersects = raycaster.intersectObject(robotRef.current, true);
+
+        // Find the link
+        let link: URDFLink | null = null;
+        let intersectPoint: THREE.Vector3 | null = null;
+
+        for (const intersect of intersects) {
+            let object: THREE.Object3D | null = intersect.object;
+            if (object.name.includes('helper') || object.name.includes('axes')) continue;
+
+            while (object) {
+                if ((object as any).isURDFLink) {
+                    link = object as URDFLink;
+                    intersectPoint = intersect.point;
+                    break;
+                }
+                object = object.parent;
+            }
+            if (link) break;
+        }
+
+        if (link && link.parent && (link.parent as any).isURDFJoint && intersectPoint) {
+            const joint = link.parent as URDFJoint;
+            if (joint.jointType !== 'fixed') {
+                const mesh = link.getObjectByProperty('isMesh', true) as THREE.Mesh;
+                let originalMaterial = null;
+                if (mesh) {
+                    originalMaterial = mesh.material;
+                    mesh.material = linkHighlightMaterialRef.current;
+                }
+
+                dragInfoRef.current = {
+                    joint: joint,
+                    startValue: joint.angle as number || 0,
+                    startMouseX: event.clientX,
+                    startMouseY: event.clientY,
+                    draggedMesh: mesh,
+                    originalMaterial: originalMaterial,
+                    worldClickPoint: intersectPoint.clone()
+                };
+                
+                if (controlsRef.current) controlsRef.current.enabled = false;
+            }
+        }
+    };
+
+    const handleMouseMoveGlobal = (event: MouseEvent) => {
+        if (!dragInfoRef.current || !camera || !rendererRef.current) return;
+
+        const { joint, startValue, startMouseX, startMouseY, worldClickPoint } = dragInfoRef.current;
+        
+        // 1. Get mouse move vector
+        const mouseMoveVec = new THREE.Vector2(
+            event.clientX - startMouseX,
+            event.clientY - startMouseY
+        );
+
+        // 2. Calculate 3D motion direction of the point being dragged
+        // For revolute: velocity = axis x (point - origin)
+        // For prismatic: velocity = axis
+        const jointWorldPos = new THREE.Vector3().setFromMatrixPosition(joint.matrixWorld);
+        const jointAxisWorld = new THREE.Vector3().copy(joint.axis || new THREE.Vector3(0, 0, 1))
+            .transformDirection(joint.matrixWorld);
+        
+        let motionDirWorld = new THREE.Vector3();
+        if (joint.jointType === 'revolute' || joint.jointType === 'continuous') {
+            const relPoint = new THREE.Vector3().subVectors(worldClickPoint, jointWorldPos);
+            motionDirWorld.crossVectors(jointAxisWorld, relPoint).normalize();
+        } else {
+            motionDirWorld.copy(jointAxisWorld).normalize();
+        }
+
+        // 3. Project 3D motion direction to screen space
+        const canvasRect = rendererRef.current.domElement.getBoundingClientRect();
+        
+        const p1 = worldClickPoint.clone().project(camera);
+        const p2 = worldClickPoint.clone().add(motionDirWorld.multiplyScalar(0.1)).project(camera);
+        
+        const screenMotionDir = new THREE.Vector2(
+            (p2.x - p1.x) * canvasRect.width / 2,
+            -(p2.y - p1.y) * canvasRect.height / 2 // Flip Y for screen coords
+        ).normalize();
+
+        // 4. Calculate how much of the mouse move matches that screen direction
+        const dragPixels = mouseMoveVec.dot(screenMotionDir);
+        
+        // Sensitivity
+        const sensitivity = joint.jointType === 'prismatic' ? 0.002 : 0.01;
+        let newValue = startValue + dragPixels * sensitivity;
+
+        // Apply limits
+        if (joint.limit) {
+            const min = Number(joint.limit.lower);
+            const max = Number(joint.limit.upper);
+            if (!isNaN(min) && !isNaN(max)) {
+                newValue = Math.max(min, Math.min(max, newValue));
+            }
+        }
+
+        onJointChangeRef.current(joint.name, newValue);
+    };
+
+    const handleMouseUpGlobal = () => {
+        if (dragInfoRef.current) {
+            const { draggedMesh, originalMaterial } = dragInfoRef.current as any;
+            // Restore original material
+            if (draggedMesh && originalMaterial) {
+                draggedMesh.material = originalMaterial;
+            }
+            
+            dragInfoRef.current = null;
+            if (controlsRef.current) controlsRef.current.enabled = true;
+        }
+    };
+
+    // Force exit drag mode if window loses focus
+    window.addEventListener('blur', handleMouseUpGlobal);
 
     const handleContextMenu = (event: MouseEvent) => {
       event.preventDefault();
@@ -279,17 +459,26 @@ const Viewer: React.FC<ViewerProps> = (props) => {
         }
       }
     };
+    mountRef.current.addEventListener('mousedown', handleMouseDown);
+    mountRef.current.addEventListener('mousemove', handleMouseMoveHover);
+    window.addEventListener('mousemove', handleMouseMoveGlobal);
+    window.addEventListener('mouseup', handleMouseUpGlobal);
     mountRef.current.addEventListener('contextmenu', handleContextMenu);
     
     return () => {
       cancelAnimationFrame(animationFrameId);
       window.removeEventListener('resize', handleResize);
       if (mountRef.current) {
+        mountRef.current.removeEventListener('mousedown', handleMouseDown);
+        mountRef.current.removeEventListener('mousemove', handleMouseMoveHover);
         mountRef.current.removeEventListener('contextmenu', handleContextMenu);
         if (renderer.domElement) {
           mountRef.current.removeChild(renderer.domElement);
         }
       }
+      window.removeEventListener('mousemove', handleMouseMoveGlobal);
+      window.removeEventListener('mouseup', handleMouseUpGlobal);
+      window.removeEventListener('blur', handleMouseUpGlobal);
       renderer.dispose();
     };
   }, []);
