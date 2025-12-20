@@ -4,23 +4,26 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev:frontend": "vite",
+    "dev:backend": "npm run dev --prefix server",
+    "dev": "concurrently \"npm:dev:frontend\" \"npm:dev:backend\"",
     "build": "tsc && vite build",
     "preview": "vite preview"
   },
   "dependencies": {
+    "@tweenjs/tween.js": "^23.1.2",
+    "lil-gui": "^0.19.2",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "three": "^0.165.0",
-    "urdf-loader": "^0.12.0",
-    "@tweenjs/tween.js": "^23.1.2",
-    "lil-gui": "^0.19.2"
+    "urdf-loader": "^0.12.0"
   },
   "devDependencies": {
     "@types/react": "^18.2.66",
     "@types/react-dom": "^18.2.22",
     "@types/three": "^0.165.0",
     "@vitejs/plugin-react": "^4.2.1",
+    "concurrently": "^9.2.1",
     "typescript": "^5.2.2",
     "vite": "^5.2.0"
   }
