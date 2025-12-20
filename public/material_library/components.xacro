@@ -1,0 +1,18 @@
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro">
+  <xacro:macro name="sensor_pod" params="name parent material_name *origin">
+    <joint name="${name}_joint" type="fixed">
+      <xacro:insert_block name="origin" />
+      <parent link="${parent}"/>
+      <child link="${name}_link"/>
+    </joint>
+
+    <link name="${name}_link">
+      <visual>
+        <geometry><box size="0.1 0.1 0.1"/></geometry>
+        <!-- Use the passed material name -->
+        <material name="${material_name}"/>
+      </visual>
+    </link>
+  </xacro:macro>
+</robot>

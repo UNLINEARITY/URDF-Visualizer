@@ -1,0 +1,21 @@
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="fractal_tree">
+  <xacro:include filename="$(find fractal_robot)/engine.xacro" />
+
+  <link name="base_link">
+    <visual>
+      <geometry><box size="0.5 0.5 0.05"/></geometry>
+      <material name="grass"><color rgba="0.2 0.8 0.2 1"/></material>
+    </visual>
+  </link>
+
+  <!-- Start the recursive growth -->
+  <xacro:branch 
+    name="trunk" 
+    parent="base_link" 
+    depth="3" 
+    length="0.5" 
+    radius="0.05" 
+    angle_offset="0" />
+
+</robot>

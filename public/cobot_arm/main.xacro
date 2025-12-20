@@ -1,0 +1,47 @@
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="advanced_cobot">
+  
+  <!-- 1. Global Properties & Constants -->
+  <xacro:property name="PI" value="3.1415926535" />
+  <xacro:property name="arm_color" value="blue" />
+  <xacro:property name="has_gripper" value="true" />
+  
+  <material name="blue"><color rgba="0 0 1 1"/></material>
+  <material name="red"><color rgba="1 0 0 1"/></material>
+
+  <!-- 2. External Includes (Testing $(find)) -->
+  <xacro:include filename="$(find cobot_arm)/arm_module.xacro" />
+  <xacro:include filename="$(find gripper_pkg)/gripper.xacro" />
+
+  <!-- 3. Base Link -->
+  <link name="base_link">
+    <visual>
+      <geometry><box size="0.2 0.2 0.1"/></geometry>
+      <material name="red"/>
+    </visual>
+  </link>
+
+  <!-- 4. Chain of joints (Testing nested math and properties) -->
+  <xacro:arm_segment prefix="link1" parent="base_link" length="0.4" radius="0.05" color="blue">
+    <origin xyz="0 0 0.05" rpy="0 0 0"/>
+  </xacro:arm_segment>
+
+  <xacro:arm_segment prefix="link2" parent="link1_link" length="0.3" radius="0.04" color="blue">
+    <origin xyz="0.4 0 0" rpy="${PI/2} 0 0"/>
+  </xacro:arm_segment>
+
+  <!-- 5. Conditional Gripper (Testing xacro:if) -->
+  <xacro:if value="${has_gripper}">
+    <xacro:industrial_gripper parent="link2_link" prefix="main" use_friction="true">
+      <origin xyz="0.3 0 0" rpy="0 ${PI/2} 0"/>
+    </xacro:industrial_gripper>
+  </xacro:if>
+
+  <!-- 6. Verify property overwrite (Optional) -->
+  <xacro:unless value="${has_gripper}">
+    <!-- This part should be hidden if has_gripper is true -->
+    <link name="stub_end"><visual><geometry><sphere radius="0.05"/></geometry></visual></link>
+    <joint name="stub_joint" type="fixed"><parent link="link2_link"/><child link="stub_end"/></joint>
+  </xacro:unless>
+
+</robot>

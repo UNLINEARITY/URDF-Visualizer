@@ -1,0 +1,43 @@
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro">
+  <xacro:macro name="branch" params="name parent depth length radius angle_offset">
+    <!-- 1. Define the Link for this branch -->
+    <link name="link_${name}">
+      <visual>
+        <origin xyz="0 0 ${length/2}" rpy="0 0 0"/>
+        <geometry><cylinder radius="${radius}" length="${length}"/></geometry>
+        <material name="wood"><color rgba="0.6 0.4 0.2 1"/></material>
+      </visual>
+    </link>
+
+    <!-- 2. Define the Joint to parent -->
+    <joint name="joint_${name}" type="revolute">
+      <parent link="${parent}"/>
+      <child link="link_${name}"/>
+      <origin xyz="0 0 ${length * 0.8}" rpy="0 ${angle_offset} 0"/>
+      <axis xyz="0 1 0"/>
+      <limit lower="-0.5" upper="0.5" effort="10" velocity="1"/>
+    </joint>
+
+    <!-- 3. RECURSION: Generate 2 child branches if depth > 0 -->
+    <xacro:if value="${depth > 0}">
+      <!-- Left child -->
+      <xacro:branch 
+        name="${name}_L" 
+        parent="link_${name}" 
+        depth="${depth - 1}" 
+        length="${length * 0.7}" 
+        radius="${radius * 0.7}" 
+        angle_offset="0.5" />
+      
+      <!-- Right child -->
+      <xacro:branch 
+        name="${name}_R" 
+        parent="link_${name}" 
+        depth="${depth - 1}" 
+        length="${length * 0.7}" 
+        radius="${radius * 0.7}" 
+        angle_offset="-0.5" />
+    </xacro:if>
+  </xacro:macro>
+</robot>
