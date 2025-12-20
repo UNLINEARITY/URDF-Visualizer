@@ -129,6 +129,7 @@ const Viewer: React.FC<ViewerProps> = (props) => {
 
     const camera = new THREE.PerspectiveCamera(75, mountRef.current.clientWidth / mountRef.current.clientHeight, 0.1, 1000);
     camera.position.set(1.5, 1.5, 1.5);
+    camera.up.set(0, 0, 1);
     cameraRef.current = camera;
 
     const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -147,6 +148,7 @@ const Viewer: React.FC<ViewerProps> = (props) => {
     scene.add(directionalLight);
     
     gridRef.current = new THREE.GridHelper(20, 20, 0x444444, 0x222222);
+    gridRef.current.rotation.x = Math.PI / 2;
     scene.add(gridRef.current);
     axesRef.current = new THREE.AxesHelper(1);
     scene.add(axesRef.current);
@@ -491,7 +493,6 @@ const Viewer: React.FC<ViewerProps> = (props) => {
     onSelectionUpdateRef.current(null, null, null);
 
     if (robot) {
-      robot.rotation.x = -Math.PI / 2;
       scene.add(robot);
       return () => {
         scene.remove(robot);
