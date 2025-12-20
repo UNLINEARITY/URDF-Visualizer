@@ -135,9 +135,12 @@ const Viewer: React.FC<ViewerProps> = (props) => {
       if (isAltPressedRef.current) {
           if (intersects.length > 0) {
               let object = intersects[0].object;
+              console.log("Alt+Click Hit:", object.name, object.type);
+              
               // Traverse up to find the Link, then its Parent Joint
               let link: URDFLink | null = null;
               while (object) {
+                  console.log("Traversing up:", object.name, "isURDFLink:", (object as any).isURDFLink, "isURDFJoint:", (object as any).isURDFJoint);
                   if ((object as any).isURDFLink) {
                       link = object as URDFLink;
                       break;
@@ -145,14 +148,25 @@ const Viewer: React.FC<ViewerProps> = (props) => {
                   object = object.parent as THREE.Object3D;
               }
 
-              if (link && link.parent && (link.parent as any).isURDFJoint) {
-                  const joint = link.parent as URDFJoint;
-                  // Only select if it's a movable joint
-                  if (joint.jointType !== 'fixed') {
-                     onJointSelectRef.current(joint);
-                     // Optional: visual feedback for joint selection?
-                     // For now, the popup is enough.
+              if (link) {
+                  console.log("Found Link:", link.name);
+                  if (link.parent) {
+                       console.log("Link Parent:", link.parent.name, "isURDFJoint:", (link.parent as any).isURDFJoint);
+                       if ((link.parent as any).isURDFJoint) {
+                           const joint = link.parent as URDFJoint;
+                           // Only select if it's a movable joint
+                           if (joint.jointType !== 'fixed') {
+                                console.log("Selecting Joint:", joint.name);
+                                onJointSelectRef.current(joint);
+                           } else {
+                               console.log("Joint is fixed, ignoring.");
+                           }
+                       }
+                  } else {
+                      console.log("Link has no parent.");
                   }
+              } else {
+                  console.log("Could not find URDFLink in ancestry.");
               }
           }
           return; // Stop here, do not do standard selection
