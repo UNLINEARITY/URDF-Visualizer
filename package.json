@@ -16,7 +16,8 @@
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "three": "^0.165.0",
-    "urdf-loader": "^0.12.0"
+    "urdf-loader": "^0.12.0",
+    "xacro-parser": "^0.3.11"
   },
   "devDependencies": {
     "@types/react": "^18.2.66",

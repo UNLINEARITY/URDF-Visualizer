@@ -1,0 +1,173 @@
+<?xml version="1.0"?>
+<robot name="hyperion_web_compatible" xmlns:xacro="http://www.ros.org/wiki/xacro">
+
+  <!-- ============= 基础常量 ============= -->
+  <xacro:property name="PI" value="3.1415926535897931" />
+  
+  <!-- ============= 材料定义 ============= -->
+  <material name="titanium">
+    <color rgba="0.7 0.7 0.8 1.0"/>
+  </material>
+  <material name="carbon_fiber">
+    <color rgba="0.2 0.2 0.2 1.0"/>
+  </material>
+  <material name="red_paint">
+    <color rgba="0.8 0.1 0.1 1.0"/>
+  </material>
+  <material name="blue_indicator">
+    <color rgba="0.1 0.3 0.8 1.0"/>
+  </material>
+
+  <!-- ============= 宏定义 ============= -->
+
+  <!-- 
+       [修改] complex_joint 
+       1. 移除了 xyz_limits 的 split() 操作，改为接收 explicit 的 lower/upper 参数
+       2. 移除了 Gazebo/ROS Control 特有的标签 (safety_controller, calibration 等)，这些对 Web 可视化无用且可能干扰阅读
+  -->
+  <xacro:macro name="complex_joint" params="name type parent child xyz rpy axis limit_lower:=-3.14 limit_upper:=3.14">
+    <joint name="${name}" type="${type}">
+      <parent link="${parent}"/>
+      <child link="${child}"/>
+      <origin xyz="${xyz}" rpy="${rpy}"/>
+      <axis xyz="${axis}"/>
+      <limit lower="${limit_lower}" upper="${limit_upper}" effort="100" velocity="10"/>
+    </joint>
+  </xacro:macro>
+
+  <!-- 
+       [修改] complex_link
+       1. 将 <mesh> 替换为简单的 <box> 几何体，确保无需外部文件即可显示
+       2. 添加了 visual_size 参数来控制盒子大小
+  -->
+  <xacro:macro name="complex_link" params="name color:=titanium visual_size:='0.1 0.1 0.1'">
+    <link name="${name}">
+      <visual>
+        <origin xyz="0 0 0" rpy="0 0 0"/>
+        <geometry>
+          <box size="${visual_size}"/>
+        </geometry>
+        <material name="${color}"/>
+      </visual>
+      <collision>
+        <origin xyz="0 0 0" rpy="0 0 0"/>
+        <geometry>
+          <box size="${visual_size}"/>
+        </geometry>
+      </collision>
+      <inertial>
+        <mass value="1.0"/>
+        <inertia ixx="0.1" ixy="0" ixz="0" iyy="0.1" iyz="0" izz="0.1"/>
+      </inertial>
+    </link>
+  </xacro:macro>
+
+  <!-- ============= 机器人主体构建 ============= -->
+
+  <!-- 1. 基座 -->
+  <link name="base_link">
+    <visual>
+      <geometry>
+        <cylinder radius="0.3" length="0.1"/>
+      </geometry>
+      <material name="red_paint"/>
+    </visual>
+  </link>
+
+  <!-- 2. 躯干 -->
+  <complex_link name="torso" visual_size="0.2 0.15 0.6" color="titanium"/>
+  
+  <complex_joint name="torso_joint" type="revolute" 
+                 parent="base_link" child="torso" 
+                 xyz="0 0 0.35" rpy="0 0 0" 
+                 axis="0 0 1"
+                 limit_lower="-1.57" limit_upper="1.57"/>
+
+  <!-- 3. 头部 (简化为两段) -->
+  <complex_link name="head_base" visual_size="0.1 0.1 0.1" color="carbon_fiber"/>
+  <complex_joint name="head_pan_joint" type="revolute"
+                 parent="torso" child="head_base"
+                 xyz="0 0 0.35" rpy="0 0 0"
+                 axis="0 0 1"
+                 limit_lower="-1.5" limit_upper="1.5"/>
+
+  <!-- ============= 手臂构建宏 (带循环) ============= -->
+  <!-- 
+       [兼容性修改] 
+       JS 解析器处理 Python 列表索引 (arm_lengths[i]) 可能不稳定。
+       这里我们使用简单的数学计算来生成位置，不再依赖数组查找。
+  -->
+  <xacro:macro name="build_arm" params="side reflect">
+    
+    <!-- 肩部 -->
+    <complex_link name="${side}_shoulder" visual_size="0.1 0.1 0.1" color="blue_indicator"/>
+    <complex_joint name="${side}_shoulder_joint" type="revolute"
+                   parent="torso" child="${side}_shoulder"
+                   xyz="0 ${reflect * 0.2} 0.25" rpy="0 0 0"
+                   axis="0 1 0"
+                   limit_lower="-1.57" limit_upper="1.57"/>
+
+    <!-- 上臂 -->
+    <complex_link name="${side}_upper_arm" visual_size="0.08 0.08 0.3" color="titanium"/>
+    <complex_joint name="${side}_elbow_joint" type="revolute"
+                   parent="${side}_shoulder" child="${side}_upper_arm"
+                   xyz="0 ${reflect * 0.1} 0" rpy="0 0 0"
+                   axis="1 0 0"
+                   limit_lower="-2.0" limit_upper="2.0"/>
+
+    <!-- 前臂 -->
+    <complex_link name="${side}_forearm" visual_size="0.06 0.06 0.25" color="titanium"/>
+    <complex_joint name="${side}_wrist_joint" type="revolute"
+                   parent="${side}_upper_arm" child="${side}_forearm"
+                   xyz="0 0 0.25" rpy="0 0 0"
+                   axis="0 1 0"
+                   limit_lower="-1.5" limit_upper="1.5"/>
+                   
+    <!-- 手部 -->
+    <complex_link name="${side}_hand" visual_size="0.05 0.1 0.05" color="carbon_fiber"/>
+    <complex_joint name="${side}_hand_joint" type="fixed"
+                   parent="${side}_forearm" child="${side}_hand"
+                   xyz="0 0 0.2" rpy="0 0 0"
+                   axis="0 0 1"/>
+
+  </xacro:macro>
+
+  <!-- 实例化双臂 -->
+  <!-- reflect: 1 for left, -1 for right -->
+  <build_arm side="left" reflect="1"/>
+  <build_arm side="right" reflect="-1"/>
+
+
+  <!-- ============= 腿部构建宏 ============= -->
+  <xacro:macro name="build_leg" params="side reflect">
+    
+    <!-- 髋关节 -->
+    <complex_link name="${side}_thigh" visual_size="0.1 0.1 0.4" color="titanium"/>
+    <complex_joint name="${side}_hip_joint" type="revolute"
+                   parent="base_link" child="${side}_thigh"
+                   xyz="0 ${reflect * 0.2} -0.1" rpy="0 0 0"
+                   axis="0 1 0"
+                   limit_lower="-1.0" limit_upper="1.0"/>
+
+    <!-- 小腿 -->
+    <complex_link name="${side}_shin" visual_size="0.08 0.08 0.4" color="titanium"/>
+    <complex_joint name="${side}_knee_joint" type="revolute"
+                   parent="${side}_thigh" child="${side}_shin"
+                   xyz="0 0 -0.4" rpy="0 0 0"
+                   axis="0 1 0"
+                   limit_lower="0" limit_upper="2.0"/>
+
+    <!-- 脚 -->
+    <complex_link name="${side}_foot" visual_size="0.2 0.1 0.05" color="carbon_fiber"/>
+    <complex_joint name="${side}_ankle_joint" type="revolute"
+                   parent="${side}_shin" child="${side}_foot"
+                   xyz="0.05 0 -0.4" rpy="0 0 0"
+                   axis="0 1 0"
+                   limit_lower="-0.5" limit_upper="0.5"/>
+  </xacro:macro>
+
+  <!-- 实例化双腿 -->
+  <build_leg side="left" reflect="1"/>
+  <build_leg side="right" reflect="-1"/>
+
+</robot>

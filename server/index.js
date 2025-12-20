@@ -21,7 +21,7 @@ app.get('/api/samples', (req, res) => {
       return res.status(500).json({ error: 'Failed to read directory' });
     }
 
-    const urdfFiles = files.filter(file => file.endsWith('.urdf'));
+    const urdfFiles = files.filter(file => file.endsWith('.urdf') || file.endsWith('.xacro'));
     res.json(urdfFiles);
   });
 });

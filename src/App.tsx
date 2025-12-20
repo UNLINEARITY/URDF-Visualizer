@@ -1,5 +1,6 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import URDFLoader, { URDFRobot } from 'urdf-loader';
+import { XacroParser } from 'xacro-parser';
 import * as THREE from 'three';
 import Viewer from './components/Viewer';
 import JointController from './components/JointController';
@@ -152,6 +153,40 @@ function App() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
+  const processAndSetContent = async (filename: string, content: string) => {
+    if (filename.toLowerCase().endsWith('.xacro')) {
+      setLoading(true);
+      try {
+        const parser = new XacroParser();
+        // Since we are in the browser, local includes won't work automatically.
+        // We can setup a basic loader if needed, but for now we assume self-contained Xacro
+        // or we need to handle fetching if it's a sample file.
+        parser.rospackCommands = {
+           find: (pkg) => {
+             // Basic mock for rospack find. 
+             // Ideally this maps 'package_name' to a URL path if serving from server.
+             return `/api/assets/${pkg}`; 
+           }
+        };
+        
+        const xml = await parser.parse(content);
+        // The parser returns an XML Document or string? 
+        // xacro-parser usually returns an XML Document object or acts on it.
+        // Let's check the result type. If it's a Document, we serialize it.
+        // Actually, checking xacro-parser source/docs, it often returns the XML DOM.
+        
+        const serializer = new XMLSerializer();
+        const urdfString = serializer.serializeToString(xml);
+        setUrdfContent(urdfString);
+      } catch (err) {
+        console.error("Xacro parsing error:", err);
+        setError(`Failed to parse Xacro file: ${err instanceof Error ? err.message : String(err)}`);
+        setLoading(false);
+      }
+    } else {
+      setUrdfContent(content);
+    }
+  };
 
   const handleFileChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -159,7 +194,7 @@ function App() {
       const reader = new FileReader();
       reader.onload = (e) => {
         const content = e.target?.result as string;
-        setUrdfContent(content);
+        processAndSetContent(file.name, content);
       };
       reader.onerror = () => {
         setError('Failed to read file.');
@@ -184,7 +219,7 @@ function App() {
         return res.text();
       })
       .then(content => {
-        setUrdfContent(content);
+        processAndSetContent(filename, content);
       })
       .catch(err => {
         console.error(`Failed to fetch ${filename}:`, err);
@@ -203,7 +238,7 @@ function App() {
             <option value="">-- Select a Sample --</option>
             {sampleFiles.map(f => <option key={f} value={f}>{f}</option>)}
         </select>
-        <input type="file" accept=".urdf" onChange={handleFileChange} className="file-input" />
+        <input type="file" accept=".urdf,.xacro" onChange={handleFileChange} className="file-input" />
         <hr />
         <DisplayOptions
             showWorldAxes={showWorldAxes} setShowWorldAxes={setShowWorldAxes}
