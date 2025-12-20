@@ -16,13 +16,22 @@ const JointController: React.FC<JointControllerProps> = ({ robot, jointValues, o
     onJointChange(jointName, value);
   };
 
+  const handleReset = () => {
+    movableJoints.forEach(joint => {
+        onJointChange(joint.name, 0);
+    });
+  };
+
   if (movableJoints.length === 0) {
     return <div>No movable joints found.</div>;
   }
 
   return (
     <div className="controls-container">
-      <h3>Joint Controls</h3>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+        <h3 style={{ margin: 0 }}>Joint Controls</h3>
+        <button onClick={handleReset} style={{ padding: '5px 10px', cursor: 'pointer' }}>Reset</button>
+      </div>
       {movableJoints.map((joint: URDFJoint) => {
         const currentValue = jointValues[joint.name] ?? 0;
         const limit = joint.limit || { lower: 0, upper: 0 };
