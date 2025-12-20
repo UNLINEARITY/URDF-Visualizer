@@ -427,6 +427,7 @@ function App() {
           wireframe={wireframe}
           onSelectionUpdate={handleSelectionUpdate}
           onJointSelect={handleJointSelect}
+          onJointChange={handleJointChange}
           onMatrixUpdate={() => {}} // No-op, driven by onSelectionUpdate now
         />
       </div>
