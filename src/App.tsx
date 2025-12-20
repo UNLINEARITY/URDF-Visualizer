@@ -15,10 +15,33 @@ function App() {
   const [showWorldAxes, setShowWorldAxes] = useState(true);
   const [showGrid, setShowGrid] = useState(true);
   const [wireframe, setWireframe] = useState(false);
+  
+  const [sampleFiles, setSampleFiles] = useState<string[]>([]);
+
+  // Effect to fetch the list of sample files from the backend
+  useEffect(() => {
+    fetch('/api/samples')
+      .then(res => {
+        if (!res.ok) {
+          throw new Error('Network response was not ok');
+        }
+        return res.json();
+      })
+      .then(files => {
+        setSampleFiles(files);
+      })
+      .catch(err => {
+        console.error("Failed to fetch sample files:", err);
+      });
+  }, []);
 
   // Effect to parse the robot model whenever the content changes
   useEffect(() => {
-    if (!urdfContent) return;
+    if (!urdfContent) {
+      setRobot(null);
+      setError(null);
+      return;
+    };
 
     setLoading(true);
     setError(null);
@@ -83,9 +106,15 @@ function App() {
     }
   }, []);
 
-  const loadSample = useCallback(() => {
+  const handleSampleChange = useCallback((event: React.ChangeEvent<HTMLSelectElement>) => {
+    const filename = event.target.value;
+    if (!filename) {
+      setUrdfContent(null);
+      return;
+    };
+
     setLoading(true);
-    fetch('sample.urdf')
+    fetch(filename)
       .then(res => {
         if (!res.ok) {
           throw new Error(`HTTP error! status: ${res.status}`);
@@ -96,8 +125,8 @@ function App() {
         setUrdfContent(content);
       })
       .catch(err => {
-        console.error('Failed to fetch sample.urdf:', err);
-        setError('Failed to fetch sample.urdf.');
+        console.error(`Failed to fetch ${filename}:`, err);
+        setError(`Failed to fetch ${filename}.`);
         setLoading(false);
       });
   }, []);
@@ -107,9 +136,12 @@ function App() {
     <div className="app-container">
       <div className="ui-container">
         <h2>URDF Visualizer</h2>
-        <p>Load a URDF file or the provided sample.</p>
+        <p>Load a sample or upload a file.</p>
+        <select onChange={handleSampleChange} defaultValue="" className="file-input">
+            <option value="">-- Select a Sample --</option>
+            {sampleFiles.map(f => <option key={f} value={f}>{f}</option>)}
+        </select>
         <input type="file" accept=".urdf" onChange={handleFileChange} className="file-input" />
-        <button onClick={loadSample}>Load Sample Robot</button>
         <hr />
         <DisplayOptions
             showWorldAxes={showWorldAxes} setShowWorldAxes={setShowWorldAxes}
