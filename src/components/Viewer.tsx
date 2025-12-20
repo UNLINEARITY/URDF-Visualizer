@@ -102,7 +102,8 @@ const Viewer: React.FC<ViewerProps> = (props) => {
 
       if (selectedObjectRef.current) {
         selectedObjectRef.current.updateWorldMatrix(true, false);
-        onMatrixUpdateRef.current(selectedObjectRef.current.matrixWorld);
+        // Clone the matrix to force React state update (Three.js reuses the instance)
+        onMatrixUpdateRef.current(selectedObjectRef.current.matrixWorld.clone());
       }
 
       renderer.render(scene, camera);
