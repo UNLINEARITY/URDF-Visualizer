@@ -50,7 +50,7 @@ const Viewer: React.FC<ViewerProps> = (props) => {
       startMouseY: number;
       draggedMesh: THREE.Mesh | null;
       originalMaterial: THREE.Material | THREE.Material[] | null;
-      worldClickPoint: THREE.Vector3;
+      worldClickPoint: THREE.Vector3; // The exact point captured on mousedown
   } | null>(null);
 
   // Refs for selection and highlighting (JOINT)
@@ -285,44 +285,42 @@ const Viewer: React.FC<ViewerProps> = (props) => {
 
         const { joint, startValue, startMouseX, startMouseY, worldClickPoint } = dragInfoRef.current;
         
-        // 1. Get mouse move vector
-        const mouseMoveVec = new THREE.Vector2(
-            event.clientX - startMouseX,
-            event.clientY - startMouseY
-        );
+        // 1. Get raw pixel movement from the start
+        const dx = event.clientX - startMouseX;
+        const dy = event.clientY - startMouseY;
+        const mouseMovePixels = new THREE.Vector2(dx, dy);
 
-        // 2. Calculate 3D motion direction of the point being dragged
-        // For revolute: velocity = axis x (point - origin)
-        // For prismatic: velocity = axis
+        // 2. Calculate the 3D direction the link wants to move (unit change)
         const jointWorldPos = new THREE.Vector3().setFromMatrixPosition(joint.matrixWorld);
         const jointAxisWorld = new THREE.Vector3().copy(joint.axis || new THREE.Vector3(0, 0, 1))
             .transformDirection(joint.matrixWorld);
         
-        let motionDirWorld = new THREE.Vector3();
+        let moveDir3D = new THREE.Vector3();
         if (joint.jointType === 'revolute' || joint.jointType === 'continuous') {
             const relPoint = new THREE.Vector3().subVectors(worldClickPoint, jointWorldPos);
-            motionDirWorld.crossVectors(jointAxisWorld, relPoint).normalize();
+            // Tangent vector = axis x radius (This represents the motion for 1 radian)
+            moveDir3D.crossVectors(jointAxisWorld, relPoint); 
         } else {
-            motionDirWorld.copy(jointAxisWorld).normalize();
+            // Motion for 1 meter
+            moveDir3D.copy(jointAxisWorld);
         }
 
-        // 3. Project 3D motion direction to screen space
-        const canvasRect = rendererRef.current.domElement.getBoundingClientRect();
-        
+        // 3. Project that 3D "1-unit move" to screen space (Pixels)
+        const rect = rendererRef.current.domElement.getBoundingClientRect();
         const p1 = worldClickPoint.clone().project(camera);
-        const p2 = worldClickPoint.clone().add(motionDirWorld.multiplyScalar(0.1)).project(camera);
+        const p2 = worldClickPoint.clone().add(moveDir3D).project(camera);
         
-        const screenMotionDir = new THREE.Vector2(
-            (p2.x - p1.x) * canvasRect.width / 2,
-            -(p2.y - p1.y) * canvasRect.height / 2 // Flip Y for screen coords
-        ).normalize();
+        const screenMotionVec = new THREE.Vector2(
+            (p2.x - p1.x) * rect.width / 2,
+            -(p2.y - p1.y) * rect.height / 2
+        );
 
-        // 4. Calculate how much of the mouse move matches that screen direction
-        const dragPixels = mouseMoveVec.dot(screenMotionDir);
-        
-        // Sensitivity
-        const sensitivity = joint.jointType === 'prismatic' ? 0.002 : 0.01;
-        let newValue = startValue + dragPixels * sensitivity;
+        // 4. Dot product: project mouse movement onto the screen motion vector
+        const projectionLenSq = screenMotionVec.lengthSq();
+        if (projectionLenSq < 0.0001) return; // Prevent division by zero
+
+        const change = mouseMovePixels.dot(screenMotionVec) / projectionLenSq;
+        let newValue = startValue + change;
 
         // Apply limits
         if (joint.limit) {
