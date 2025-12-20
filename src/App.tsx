@@ -14,13 +14,9 @@ function App() {
   // Display options state
   const [showWorldAxes, setShowWorldAxes] = useState(true);
   const [showGrid, setShowGrid] = useState(true);
-  const [showLinkAxes, setShowLinkAxes] = useState(false);
-  const [showJointAxes, setShowJointAxes] = useState(false);
-  const [showCollision, setShowCollision] = useState(false);
   const [wireframe, setWireframe] = useState(false);
-  const [hasCollision, setHasCollision] = useState(false);
 
-  // Effect to parse the robot model whenever the content or collision toggle changes
+  // Effect to parse the robot model whenever the content changes
   useEffect(() => {
     if (!urdfContent) return;
 
@@ -28,22 +24,11 @@ function App() {
     setError(null);
     setRobot(null);
 
-    // Use DOMParser to check for collision tags reliably
-    try {
-      const parser = new DOMParser();
-      const xml = parser.parseFromString(urdfContent, 'text/xml');
-      const collisionNodes = xml.querySelectorAll('collision');
-      setHasCollision(collisionNodes.length > 0);
-    } catch (e) {
-      console.error('Failed to parse URDF for collision check', e);
-      setHasCollision(false);
-    }
-    
     // Defer the parsing to allow the UI to update
     setTimeout(() => {
       const manager = new THREE.LoadingManager();
       const loader = new URDFLoader(manager);
-      loader.loadCollision = showCollision;
+      loader.loadCollision = false; // Reverted
 
       manager.onLoad = () => setLoading(false);
       manager.onError = (url) => {
@@ -65,7 +50,7 @@ function App() {
       }
     }, 10);
 
-  }, [urdfContent, showCollision]);
+  }, [urdfContent]);
 
 
   // Keyboard shortcuts effect
@@ -75,15 +60,12 @@ function App() {
       switch (e.key.toLowerCase()) {
         case 'w': setShowWorldAxes(v => !v); break;
         case 'g': setShowGrid(v => !v); break;
-        case 'l': setShowLinkAxes(v => !v); break;
-        case 'j': setShowJointAxes(v => !v); break;
-        case 'c': if (hasCollision) setShowCollision(v => !v); break;
         case 'f': setWireframe(v => !v); break;
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [hasCollision]);
+  }, []);
 
 
   const handleFileChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
@@ -92,7 +74,6 @@ function App() {
       const reader = new FileReader();
       reader.onload = (e) => {
         const content = e.target?.result as string;
-        // Setting the content will trigger the main useEffect
         setUrdfContent(content);
       };
       reader.onerror = () => {
@@ -104,10 +85,6 @@ function App() {
 
   const loadSample = useCallback(() => {
     setLoading(true);
-    // Setting showCollision to false ensures we load the visual model first
-    if (showCollision) {
-      setShowCollision(false);
-    }
     fetch('sample.urdf')
       .then(res => {
         if (!res.ok) {
@@ -123,7 +100,7 @@ function App() {
         setError('Failed to fetch sample.urdf.');
         setLoading(false);
       });
-  }, [showCollision]);
+  }, []);
 
 
   return (
@@ -137,11 +114,7 @@ function App() {
         <DisplayOptions
             showWorldAxes={showWorldAxes} setShowWorldAxes={setShowWorldAxes}
             showGrid={showGrid} setShowGrid={setShowGrid}
-            showLinkAxes={showLinkAxes} setShowLinkAxes={setShowLinkAxes}
-            showJointAxes={showJointAxes} setShowJointAxes={setShowJointAxes}
-            showCollision={showCollision} setShowCollision={setShowCollision}
             wireframe={wireframe} setWireframe={setWireframe}
-            hasCollision={hasCollision}
         />
         <hr />
         {robot && <JointController robot={robot} />}
@@ -153,9 +126,6 @@ function App() {
           robot={robot}
           showWorldAxes={showWorldAxes}
           showGrid={showGrid}
-          showLinkAxes={showLinkAxes}
-          showJointAxes={showJointAxes}
-          showCollision={showCollision} // This prop is now somewhat redundant but keep for consistency
           wireframe={wireframe}
         />
       </div>

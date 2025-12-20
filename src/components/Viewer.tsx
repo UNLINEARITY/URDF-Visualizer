@@ -7,14 +7,11 @@ interface ViewerProps {
   robot: URDFRobot | null;
   showWorldAxes: boolean;
   showGrid: boolean;
-  showLinkAxes: boolean;
-  showJointAxes: boolean;
-  showCollision: boolean;
   wireframe: boolean;
 }
 
 const Viewer: React.FC<ViewerProps> = (props) => {
-  const { robot, showWorldAxes, showGrid, showLinkAxes, showJointAxes, showCollision, wireframe } = props;
+  const { robot, showWorldAxes, showGrid, wireframe } = props;
   const mountRef = useRef<HTMLDivElement>(null);
   const sceneRef = useRef<THREE.Scene | null>(null);
   const gridRef = useRef<THREE.GridHelper | null>(null);
@@ -29,7 +26,8 @@ const Viewer: React.FC<ViewerProps> = (props) => {
     sceneRef.current = scene;
 
     const camera = new THREE.PerspectiveCamera(75, mountRef.current.clientWidth / mountRef.current.clientHeight, 0.1, 1000);
-    camera.position.set(2, 2, 2);
+    camera.position.set(1.5, 1.5, 1.5);
+    camera.lookAt(0, 0, 0);
 
     const renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setSize(mountRef.current.clientWidth, mountRef.current.clientHeight);
@@ -72,7 +70,7 @@ const Viewer: React.FC<ViewerProps> = (props) => {
     
     return () => {
       window.removeEventListener('resize', handleResize);
-      if (mountRef.current) {
+      if (mountRef.current && renderer.domElement) {
         mountRef.current.removeChild(renderer.domElement);
       }
     };
@@ -88,19 +86,12 @@ const Viewer: React.FC<ViewerProps> = (props) => {
       scene.add(robot);
 
       return () => {
-        // Remove all dynamically added helpers
-        robot.traverse(c => {
-          const axes = c.getObjectByName('axes-helper');
-          if (axes) {
-            c.remove(axes);
-          }
-        });
         scene.remove(robot);
       }
     }
   }, [robot]);
 
-  // Effect for handling display options
+  // Effect for handling simple display options
   useEffect(() => {
     if (robot) {
         // Wireframe
@@ -110,42 +101,10 @@ const Viewer: React.FC<ViewerProps> = (props) => {
               materials.forEach(m => { m.wireframe = wireframe; });
             }
         });
-
-        // Joint Axes
-        for (const name in robot.joints) {
-            const joint = robot.joints[name];
-            let axes = joint.getObjectByName('axes-helper') as THREE.AxesHelper;
-            if (showJointAxes) {
-                if (!axes) {
-                    axes = new THREE.AxesHelper(0.1);
-                    axes.name = 'axes-helper';
-                    joint.add(axes);
-                }
-                axes.visible = true;
-            } else if (axes) {
-                axes.visible = false;
-            }
-        }
-
-        // Link Axes
-        for (const name in robot.links) {
-            const link = robot.links[name];
-            let axes = link.getObjectByName('axes-helper') as THREE.AxesHelper;
-            if (showLinkAxes) {
-                if (!axes) {
-                    axes = new THREE.AxesHelper(0.2);
-                    axes.name = 'axes-helper';
-                    link.add(axes);
-                }
-                axes.visible = true;
-            } else if (axes) {
-                axes.visible = false;
-            }
-        }
     }
-  }, [robot, showCollision, showJointAxes, showLinkAxes, wireframe]);
+  }, [robot, wireframe]);
 
-  // Effect for toggling grid and axes helpers
+  // Effect for toggling grid and world axes helpers
   useEffect(() => {
     if (gridRef.current) {
         gridRef.current.visible = showGrid;
