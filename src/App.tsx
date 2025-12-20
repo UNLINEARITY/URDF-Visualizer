@@ -178,23 +178,25 @@ function App() {
     setTimeout(() => {
       const manager = new THREE.LoadingManager();
       
-      // Determine the base path of the current model
-      const parts = currentFilePath.split('/');
-      const modelPackageRoot = parts.length > 1 ? parts[0] : '';
+      // Determine the directory of the current model file
+      // If currentFilePath is "go2/urdf/go2.urdf", modelDir is "go2/urdf"
+      const pathParts = currentFilePath.split('/');
+      const modelDir = pathParts.slice(0, -1).join('/');
 
-      // Setup URL Modifier to handle package:// and relative paths
+      // Setup URL Modifier to handle package:// and URDF-relative paths
       manager.setURLModifier((url) => {
-          console.log("Loading resource:", url);
-          
+          // 1. Handle ROS package:// protocol
           if (url.startsWith('package://')) {
               return url.replace('package://', '/api/assets/');
           }
           
-          // If it's a relative path (doesn't start with / or http)
+          // 2. Handle relative paths (e.g. "../dae/base.dae")
           if (!url.startsWith('/') && !url.startsWith('http')) {
-              // Redirect to the package root in our assets API
-              // e.g., "meshes/head.STL" -> "/api/assets/g1/meshes/head.STL"
-              return `/api/assets/${modelPackageRoot}/${url}`;
+              // Join the URDF directory with the relative mesh path
+              // The browser/server will naturally resolve "/api/assets/go2/urdf/../dae/base.dae" 
+              // into "/api/assets/go2/dae/base.dae"
+              const fullAssetPath = modelDir ? `${modelDir}/${url}` : url;
+              return `/api/assets/${fullAssetPath}`;
           }
           
           return url;
