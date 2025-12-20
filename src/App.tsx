@@ -173,6 +173,17 @@ function App() {
     // Defer the parsing to allow the UI to update
     setTimeout(() => {
       const manager = new THREE.LoadingManager();
+      
+      // Setup URL Modifier to handle package:// URIs
+      manager.setURLModifier((url) => {
+          if (url.startsWith('package://')) {
+              // Convert package://pkg_name/path/to/file 
+              // to /api/assets/pkg_name/path/to/file
+              return url.replace('package://', '/api/assets/');
+          }
+          return url;
+      });
+
       const loader = new URDFLoader(manager);
       loader.loadCollision = false;
 
@@ -238,17 +249,21 @@ function App() {
     if (filename.toLowerCase().endsWith('.xacro')) {
       setLoading(true);
       try {
+        // 1. Get pre-assembled Xacro from backend (includes are already merged)
+        const response = await fetch(`/api/xacro-to-urdf?file=${encodeURIComponent(filename)}`);
+        if (!response.ok) throw new Error(await response.text());
+        const assembledXacro = await response.text();
+
+        // 2. Parse macros in the browser
         const parser = new XacroParser();
-        parser.rospackCommands = {
-           find: (pkg) => `/api/assets/${pkg}`
-        };
-        const xml = await parser.parse(content);
+        const xml = await parser.parse(assembledXacro);
         const serializer = new XMLSerializer();
         const urdfString = serializer.serializeToString(xml);
+        
         setUrdfContent(urdfString);
       } catch (err) {
         console.error("Xacro parsing error:", err);
-        setError(`Failed to parse Xacro file: ${err instanceof Error ? err.message : String(err)}`);
+        setError(`Xacro Error: ${err instanceof Error ? err.message : String(err)}`);
         setLoading(false);
       }
     } else {
