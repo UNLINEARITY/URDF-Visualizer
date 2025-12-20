@@ -4,6 +4,14 @@ import * as THREE from 'three';
 import Viewer from './components/Viewer';
 import JointController from './components/JointController';
 import DisplayOptions from './components/DisplayOptions';
+import InfoPopup from './components/InfoPopup';
+
+interface SelectionInfo {
+  name: string | null;
+  matrix: THREE.Matrix4 | null;
+  visible: boolean;
+  position: { x: number; y: number; };
+}
 
 function App() {
   const [robot, setRobot] = useState<URDFRobot | null>(null);
@@ -17,6 +25,29 @@ function App() {
   const [wireframe, setWireframe] = useState(false);
   
   const [sampleFiles, setSampleFiles] = useState<string[]>([]);
+  
+  // Unified state for the selection and popup
+  const [selection, setSelection] = useState<SelectionInfo>({
+    name: null,
+    matrix: null,
+    visible: false,
+    position: { x: 0, y: 0 },
+  });
+
+  // Callback to be passed to Viewer for selection updates
+  const handleSelectionUpdate = useCallback((name: string | null, matrix: THREE.Matrix4 | null, event?: MouseEvent) => {
+    setSelection(prev => ({
+      name: name,
+      matrix: matrix,
+      visible: !!name,
+      position: event ? { x: event.clientX, y: event.clientY } : prev.position,
+    }));
+  }, []);
+
+  const closePopup = () => {
+    setSelection(prev => ({ ...prev, visible: false, name: null, matrix: null }));
+  };
+
 
   // Effect to fetch the list of sample files from the backend
   useEffect(() => {
@@ -46,12 +77,13 @@ function App() {
     setLoading(true);
     setError(null);
     setRobot(null);
+    closePopup(); // Close popup when loading new model
 
     // Defer the parsing to allow the UI to update
     setTimeout(() => {
       const manager = new THREE.LoadingManager();
       const loader = new URDFLoader(manager);
-      loader.loadCollision = false; // Reverted
+      loader.loadCollision = false;
 
       manager.onLoad = () => setLoading(false);
       manager.onError = (url) => {
@@ -84,6 +116,7 @@ function App() {
         case 'w': setShowWorldAxes(v => !v); break;
         case 'g': setShowGrid(v => !v); break;
         case 'f': setWireframe(v => !v); break;
+        case 'escape': closePopup(); break;
       }
     };
     window.addEventListener('keydown', handleKeyDown);
@@ -154,11 +187,21 @@ function App() {
       </div>
       <div className="viewer-container">
         {loading && <div className="loading-indicator">Loading...</div>}
+        {selection.visible && (
+            <InfoPopup
+                name={selection.name}
+                matrix={selection.matrix}
+                top={selection.position.y}
+                left={selection.position.x}
+                onClose={closePopup}
+            />
+        )}
         <Viewer
           robot={robot}
           showWorldAxes={showWorldAxes}
           showGrid={showGrid}
           wireframe={wireframe}
+          onSelectionUpdate={handleSelectionUpdate}
         />
       </div>
     </div>

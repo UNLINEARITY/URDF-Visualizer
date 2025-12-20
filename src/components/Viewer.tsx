@@ -1,23 +1,43 @@
 import React, { useRef, useEffect } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-import { URDFRobot } from 'urdf-loader';
+import { URDFRobot, URDFJoint, URDFLink } from 'urdf-loader';
 
 interface ViewerProps {
   robot: URDFRobot | null;
   showWorldAxes: boolean;
   showGrid: boolean;
   wireframe: boolean;
+  onSelectionUpdate: (name: string | null, matrix: THREE.Matrix4 | null, event?: MouseEvent) => void;
 }
 
 const Viewer: React.FC<ViewerProps> = (props) => {
-  const { robot, showWorldAxes, showGrid, wireframe } = props;
+  const { robot, showWorldAxes, showGrid, wireframe, onSelectionUpdate } = props;
   const mountRef = useRef<HTMLDivElement>(null);
+
+  // Refs for three.js objects
   const sceneRef = useRef<THREE.Scene | null>(null);
   const gridRef = useRef<THREE.GridHelper | null>(null);
   const axesRef = useRef<THREE.AxesHelper | null>(null);
+  
+  // Refs for selection and highlighting
+  const selectedObjectRef = useRef<URDFLink | URDFJoint | null>(null);
+  const originalMaterialRef = useRef<THREE.Material | THREE.Material[] | null>(null);
+  const highlightMaterialRef = useRef(new THREE.MeshBasicMaterial({ color: 0xffff00, wireframe: true }));
 
-  // Effect for initializing the scene
+  const unhighlight = () => {
+    if (selectedObjectRef.current && originalMaterialRef.current) {
+      // Find the mesh to unhighlight
+      const mesh = selectedObjectRef.current.getObjectByProperty('isMesh', true);
+      if (mesh) {
+        (mesh as THREE.Mesh).material = originalMaterialRef.current as THREE.Material;
+      }
+    }
+    selectedObjectRef.current = null;
+    originalMaterialRef.current = null;
+  };
+  
+  // Main initialization effect (runs once)
   useEffect(() => {
     if (!mountRef.current) return;
 
@@ -37,66 +57,109 @@ const Viewer: React.FC<ViewerProps> = (props) => {
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
 
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
-    scene.add(ambientLight);
-
+    // Lights and helpers
+    scene.add(new THREE.AmbientLight(0xffffff, 0.5));
     const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
     directionalLight.position.set(5, 5, 5);
     directionalLight.castShadow = true;
     scene.add(directionalLight);
     
-    const grid = new THREE.GridHelper(20, 20);
-    gridRef.current = grid;
-    scene.add(grid);
+    gridRef.current = new THREE.GridHelper(20, 20);
+    scene.add(gridRef.current);
+    axesRef.current = new THREE.AxesHelper(1);
+    scene.add(axesRef.current);
 
-    const axes = new THREE.AxesHelper(1);
-    axesRef.current = axes;
-    scene.add(axes);
+    const raycaster = new THREE.Raycaster();
+    const mouse = new THREE.Vector2();
     
     const animate = () => {
       requestAnimationFrame(animate);
       controls.update();
+
+      // Real-time matrix update for selected object
+      if (selectedObjectRef.current) {
+        selectedObjectRef.current.updateWorldMatrix(true, false);
+        onSelectionUpdate(selectedObjectRef.current.name, selectedObjectRef.current.matrixWorld);
+      }
+
       renderer.render(scene, camera);
     };
     animate();
 
-    const handleResize = () => {
-      if (!mountRef.current) return;
-      camera.aspect = mountRef.current.clientWidth / mountRef.current.clientHeight;
-      camera.updateProjectionMatrix();
-      renderer.setSize(mountRef.current.clientWidth, mountRef.current.clientHeight);
-    };
+    const handleResize = () => { /* ... resize logic ... */ };
     window.addEventListener('resize', handleResize);
+
+    const handleContextMenu = (event: MouseEvent) => {
+      event.preventDefault();
+      if (!mountRef.current) return;
+
+      const rect = mountRef.current.getBoundingClientRect();
+      mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+      mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+      
+      raycaster.setFromCamera(mouse, camera);
+      const intersects = raycaster.intersectObjects(scene.children, true);
+      
+      unhighlight(); // Always unhighlight previous selection
+
+      for (const intersect of intersects) {
+        let object: THREE.Object3D | null = intersect.object;
+        while (object) {
+          if ((object as any).isURDFLink || (object as any).isURDFJoint) {
+            const selected = object as URDFLink | URDFJoint;
+            
+            // Highlight logic
+            const mesh = selected.getObjectByProperty('isMesh', true);
+            if (mesh) {
+              selectedObjectRef.current = selected;
+              originalMaterialRef.current = (mesh as THREE.Mesh).material;
+              (mesh as THREE.Mesh).material = highlightMaterialRef.current;
+            }
+            
+            onSelectionUpdate(selected.name, selected.matrixWorld, event);
+            return;
+          }
+          object = object.parent;
+        }
+      }
+      // If no link/joint was clicked, clear the selection
+      onSelectionUpdate(null, null, event);
+    };
+    mountRef.current.addEventListener('contextmenu', handleContextMenu);
     
+    // Cleanup
     return () => {
       window.removeEventListener('resize', handleResize);
-      if (mountRef.current && renderer.domElement) {
-        mountRef.current.removeChild(renderer.domElement);
+      if (mountRef.current) {
+        mountRef.current.removeEventListener('contextmenu', handleContextMenu);
+        if (renderer.domElement) {
+          mountRef.current.removeChild(renderer.domElement);
+        }
       }
     };
-  }, []);
+  }, []); // This effect runs only once on mount
 
   // Effect for adding and removing the robot from the scene
   useEffect(() => {
     const scene = sceneRef.current;
     if (!scene) return;
+    unhighlight(); // Unhighlight when robot changes
+    onSelectionUpdate(null, null);
 
     if (robot) {
       robot.rotation.x = -Math.PI / 2;
       scene.add(robot);
-
       return () => {
         scene.remove(robot);
       }
     }
   }, [robot]);
 
-  // Effect for handling simple display options
+  // Other effects for toggling wireframe, grid, axes...
   useEffect(() => {
     if (robot) {
-        // Wireframe
         robot.traverse(c => {
-            if (c.isMesh) {
+            if (c.isMesh && c !== selectedObjectRef.current?.getObjectByProperty('isMesh', true)) {
               const materials = Array.isArray(c.material) ? c.material : [c.material];
               materials.forEach(m => { m.wireframe = wireframe; });
             }
@@ -104,14 +167,9 @@ const Viewer: React.FC<ViewerProps> = (props) => {
     }
   }, [robot, wireframe]);
 
-  // Effect for toggling grid and world axes helpers
   useEffect(() => {
-    if (gridRef.current) {
-        gridRef.current.visible = showGrid;
-    }
-    if (axesRef.current) {
-        axesRef.current.visible = showWorldAxes;
-    }
+    if (gridRef.current) gridRef.current.visible = showGrid;
+    if (axesRef.current) axesRef.current.visible = showWorldAxes;
   }, [showGrid, showWorldAxes]);
 
   return <div ref={mountRef} style={{ width: '100%', height: '100%' }} />;

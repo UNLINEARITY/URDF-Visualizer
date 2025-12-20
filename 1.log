@@ -1,75 +1,41 @@
 react-dom.development.js:29895 Download the React DevTools for a better development experience: https://reactjs.org/link/react-devtools
-App.tsx:23   GET http://localhost:3001/api/samples net::ERR_CONNECTION_REFUSED
-(匿名) @ App.tsx:23
-commitHookEffectListMount @ react-dom.development.js:23189
-commitPassiveMountOnFiber @ react-dom.development.js:24965
-commitPassiveMountEffects_complete @ react-dom.development.js:24930
-commitPassiveMountEffects_begin @ react-dom.development.js:24917
-commitPassiveMountEffects @ react-dom.development.js:24905
-flushPassiveEffectsImpl @ react-dom.development.js:27078
-flushPassiveEffects @ react-dom.development.js:27023
-(匿名) @ react-dom.development.js:26808
-workLoop @ scheduler.development.js:266
-flushWork @ scheduler.development.js:239
-performWorkUntilDeadline @ scheduler.development.js:533
-App.tsx:34  Failed to fetch sample files: TypeError: Failed to fetch
-    at App.tsx:23:5
-    at commitHookEffectListMount (react-dom.development.js:23189:26)
-    at commitPassiveMountOnFiber (react-dom.development.js:24965:13)
-    at commitPassiveMountEffects_complete (react-dom.development.js:24930:9)
-    at commitPassiveMountEffects_begin (react-dom.development.js:24917:7)
-    at commitPassiveMountEffects (react-dom.development.js:24905:3)
-    at flushPassiveEffectsImpl (react-dom.development.js:27078:3)
-    at flushPassiveEffects (react-dom.development.js:27023:14)
-    at react-dom.development.js:26808:9
-    at workLoop (scheduler.development.js:266:34)
-(匿名) @ App.tsx:34
-Promise.catch
-(匿名) @ App.tsx:33
-commitHookEffectListMount @ react-dom.development.js:23189
-commitPassiveMountOnFiber @ react-dom.development.js:24965
-commitPassiveMountEffects_complete @ react-dom.development.js:24930
-commitPassiveMountEffects_begin @ react-dom.development.js:24917
-commitPassiveMountEffects @ react-dom.development.js:24905
-flushPassiveEffectsImpl @ react-dom.development.js:27078
-flushPassiveEffects @ react-dom.development.js:27023
-(匿名) @ react-dom.development.js:26808
-workLoop @ scheduler.development.js:266
-flushWork @ scheduler.development.js:239
-performWorkUntilDeadline @ scheduler.development.js:533
-App.tsx:23   GET http://localhost:3001/api/samples net::ERR_CONNECTION_REFUSED
-(匿名) @ App.tsx:23
-commitHookEffectListMount @ react-dom.development.js:23189
-invokePassiveEffectMountInDEV @ react-dom.development.js:25193
-invokeEffectsInDev @ react-dom.development.js:27390
-commitDoubleInvokeEffectsInDEV @ react-dom.development.js:27369
-flushPassiveEffectsImpl @ react-dom.development.js:27095
-flushPassiveEffects @ react-dom.development.js:27023
-(匿名) @ react-dom.development.js:26808
-workLoop @ scheduler.development.js:266
-flushWork @ scheduler.development.js:239
-performWorkUntilDeadline @ scheduler.development.js:533
-App.tsx:34  Failed to fetch sample files: TypeError: Failed to fetch
-    at App.tsx:23:5
-    at commitHookEffectListMount (react-dom.development.js:23189:26)
-    at invokePassiveEffectMountInDEV (react-dom.development.js:25193:13)
-    at invokeEffectsInDev (react-dom.development.js:27390:11)
-    at commitDoubleInvokeEffectsInDEV (react-dom.development.js:27369:7)
-    at flushPassiveEffectsImpl (react-dom.development.js:27095:5)
-    at flushPassiveEffects (react-dom.development.js:27023:14)
-    at react-dom.development.js:26808:9
-    at workLoop (scheduler.development.js:266:34)
-    at flushWork (scheduler.development.js:239:14)
-(匿名) @ App.tsx:34
-Promise.catch
-(匿名) @ App.tsx:33
-commitHookEffectListMount @ react-dom.development.js:23189
-invokePassiveEffectMountInDEV @ react-dom.development.js:25193
-invokeEffectsInDev @ react-dom.development.js:27390
-commitDoubleInvokeEffectsInDEV @ react-dom.development.js:27369
-flushPassiveEffectsImpl @ react-dom.development.js:27095
-flushPassiveEffects @ react-dom.development.js:27023
-(匿名) @ react-dom.development.js:26808
-workLoop @ scheduler.development.js:266
-flushWork @ scheduler.development.js:239
-performWorkUntilDeadline @ scheduler.development.js:533
+App.tsx:164  Uncaught ReferenceError: MatrixDisplay is not defined
+    at App (App.tsx:164:10)
+    at renderWithHooks (react-dom.development.js:15486:18)
+    at mountIndeterminateComponent (react-dom.development.js:20103:13)
+    at beginWork (react-dom.development.js:21626:16)
+    at HTMLUnknownElement.callCallback2 (react-dom.development.js:4164:14)
+    at Object.invokeGuardedCallbackDev (react-dom.development.js:4213:16)
+    at invokeGuardedCallback (react-dom.development.js:4277:31)
+    at beginWork$1 (react-dom.development.js:27490:7)
+    at performUnitOfWork (react-dom.development.js:26596:12)
+    at workLoopSync (react-dom.development.js:26505:5)
+App.tsx:164  Uncaught ReferenceError: MatrixDisplay is not defined
+    at App (App.tsx:164:10)
+    at renderWithHooks (react-dom.development.js:15486:18)
+    at mountIndeterminateComponent (react-dom.development.js:20103:13)
+    at beginWork (react-dom.development.js:21626:16)
+    at HTMLUnknownElement.callCallback2 (react-dom.development.js:4164:14)
+    at Object.invokeGuardedCallbackDev (react-dom.development.js:4213:16)
+    at invokeGuardedCallback (react-dom.development.js:4277:31)
+    at beginWork$1 (react-dom.development.js:27490:7)
+    at performUnitOfWork (react-dom.development.js:26596:12)
+    at workLoopSync (react-dom.development.js:26505:5)
+react-dom.development.js:18704  The above error occurred in the <App> component:
+
+    at App (http://localhost:5173/src/App.tsx?t=1766199110586:26:29)
+
+Consider adding an error boundary to your tree to customize error handling behavior.
+Visit https://reactjs.org/link/error-boundaries to learn more about error boundaries.
+logCapturedError @ react-dom.development.js:18704
+react-dom.development.js:26962  Uncaught ReferenceError: MatrixDisplay is not defined
+    at App (App.tsx:164:10)
+    at renderWithHooks (react-dom.development.js:15486:18)
+    at mountIndeterminateComponent (react-dom.development.js:20103:13)
+    at beginWork (react-dom.development.js:21626:16)
+    at beginWork$1 (react-dom.development.js:27465:14)
+    at performUnitOfWork (react-dom.development.js:26596:12)
+    at workLoopSync (react-dom.development.js:26505:5)
+    at renderRootSync (react-dom.development.js:26473:7)
+    at recoverFromConcurrentError (react-dom.development.js:25889:20)
+    at performConcurrentWorkOnRoot (react-dom.development.js:25789:22)
