@@ -34,7 +34,7 @@ function App() {
   const [showJointAxes, setShowJointAxes] = useState(false);
   const [wireframe, setWireframe] = useState(false);
   
-  const [isAltPressed, setIsAltPressed] = useState(false);
+  const [isCtrlPressed, setIsCtrlPressed] = useState(false);
   const [sampleFiles, setSampleFiles] = useState<string[]>([]);
   
   // -- GLOBAL JOINT STATE --
@@ -100,7 +100,7 @@ function App() {
       });
   }, []);
 
-  // Handles Joint Selection (Alt + Right-Click)
+  // Handles Joint Selection (Ctrl + Right-Click)
   const handleJointSelect = useCallback((joint: URDFJoint) => {
       const position = lastJointPosRef.current || {
           x: window.innerWidth / 2 + 20, 
@@ -202,8 +202,8 @@ function App() {
   // Keyboard shortcuts effect
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Alt') {
-          setIsAltPressed(true);
+      if (e.key === 'Control') {
+          setIsCtrlPressed(true);
       }
 
       if (document.activeElement?.tagName === 'INPUT') return;
@@ -221,8 +221,8 @@ function App() {
     };
 
     const handleKeyUp = (e: KeyboardEvent) => {
-        if (e.key === 'Alt') {
-            setIsAltPressed(false);
+        if (e.key === 'Control') {
+            setIsCtrlPressed(false);
         }
     };
 
@@ -358,7 +358,7 @@ function App() {
 
         <Viewer
           robot={robot}
-          isAltPressed={isAltPressed}
+          isCtrlPressed={isCtrlPressed}
           selectedJoint={jointSelection.joint}
           showWorldAxes={showWorldAxes}
           showGrid={showGrid}

@@ -5,7 +5,7 @@ import { URDFRobot, URDFJoint, URDFLink } from 'urdf-loader';
 
 interface ViewerProps {
   robot: URDFRobot | null;
-  isAltPressed: boolean;
+  isCtrlPressed: boolean;
   selectedJoint: URDFJoint | null;
   showWorldAxes: boolean;
   showGrid: boolean;
@@ -18,7 +18,7 @@ interface ViewerProps {
 }
 
 const Viewer: React.FC<ViewerProps> = (props) => {
-  const { robot, isAltPressed, selectedJoint, showWorldAxes, showGrid, showLinkAxes, showJointAxes, wireframe, onSelectionUpdate, onJointSelect, onMatrixUpdate } = props;
+  const { robot, isCtrlPressed, selectedJoint, showWorldAxes, showGrid, showLinkAxes, showJointAxes, wireframe, onSelectionUpdate, onJointSelect, onMatrixUpdate } = props;
   const mountRef = useRef<HTMLDivElement>(null);
 
   // Refs for three.js objects
@@ -53,13 +53,13 @@ const Viewer: React.FC<ViewerProps> = (props) => {
   const onMatrixUpdateRef = useRef(onMatrixUpdate);
   const onSelectionUpdateRef = useRef(onSelectionUpdate);
   const onJointSelectRef = useRef(onJointSelect);
-  const isAltPressedRef = useRef(isAltPressed);
+  const isCtrlPressedRef = useRef(isCtrlPressed);
   const robotRef = useRef<URDFRobot | null>(robot);
   
   useEffect(() => { onMatrixUpdateRef.current = onMatrixUpdate; }, [onMatrixUpdate]);
   useEffect(() => { onSelectionUpdateRef.current = onSelectionUpdate; }, [onSelectionUpdate]);
   useEffect(() => { onJointSelectRef.current = onJointSelect; }, [onJointSelect]);
-  useEffect(() => { isAltPressedRef.current = isAltPressed; }, [isAltPressed]);
+  useEffect(() => { isCtrlPressedRef.current = isCtrlPressed; }, [isCtrlPressed]);
   useEffect(() => { robotRef.current = robot; }, [robot]);
 
   const unhighlightLink = () => {
@@ -177,8 +177,8 @@ const Viewer: React.FC<ViewerProps> = (props) => {
       // Raycast ONLY against the robot model to avoid hitting the grid/axes
       const intersects = raycaster.intersectObject(robotRef.current, true);
       
-      // --- ALT KEY LOGIC: Joint Selection ---
-      if (isAltPressedRef.current) {
+      // --- CTRL KEY LOGIC: Joint Selection ---
+      if (isCtrlPressedRef.current) {
           if (intersects.length > 0) {
               let object = intersects[0].object;
               // Traverse up to find the Link, then its Parent Joint
@@ -297,7 +297,7 @@ const Viewer: React.FC<ViewerProps> = (props) => {
 
   // 3. Display Toggles
   useEffect(() => {
-    const effectiveShowJointAxes = showJointAxes || isAltPressed;
+    const effectiveShowJointAxes = showJointAxes || isCtrlPressed;
 
     if (robot) {
         // Wireframe
@@ -362,7 +362,7 @@ const Viewer: React.FC<ViewerProps> = (props) => {
             }
         });
     }
-  }, [robot, wireframe, showLinkAxes, showJointAxes, isAltPressed]);
+  }, [robot, wireframe, showLinkAxes, showJointAxes, isCtrlPressed]);
 
   useEffect(() => {
     if (gridRef.current) gridRef.current.visible = showGrid;
