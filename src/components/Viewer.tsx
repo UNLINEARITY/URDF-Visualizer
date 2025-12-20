@@ -188,8 +188,18 @@ const Viewer: React.FC<ViewerProps> = (props) => {
       // --- CTRL KEY LOGIC: Joint Selection ---
       if (isCtrlPressedRef.current) {
           if (intersects.length > 0) {
+              // 1. Try to find if we hit a joint helper directly
+              const helperIntersect = intersects.find(i => i.object.name === 'joint-helper');
+              if (helperIntersect) {
+                  const joint = helperIntersect.object.parent as URDFJoint;
+                  if (joint && (joint as any).isURDFJoint && joint.jointType !== 'fixed') {
+                      onJointSelectRef.current(joint);
+                      return;
+                  }
+              }
+
+              // 2. Fallback: If we hit a mesh, find the Link and then its parent Joint
               let object = intersects[0].object;
-              // Traverse up to find the Link, then its Parent Joint
               let link: URDFLink | null = null;
               while (object) {
                   if ((object as any).isURDFLink) {
@@ -201,7 +211,6 @@ const Viewer: React.FC<ViewerProps> = (props) => {
 
               if (link && link.parent && (link.parent as any).isURDFJoint) {
                   const joint = link.parent as URDFJoint;
-                  // Only select if it's a movable joint
                   if (joint.jointType !== 'fixed') {
                      onJointSelectRef.current(joint);
                   }
@@ -338,7 +347,12 @@ const Viewer: React.FC<ViewerProps> = (props) => {
                 let helper = joint.children.find(child => child.name === 'joint-helper');
                 
                 if (effectiveShowJointAxes && !helper) {
-                    const material = new THREE.MeshBasicMaterial({ color: 0xffaa00, transparent: true, opacity: 0.8 });
+                    const material = new THREE.MeshBasicMaterial({ 
+                        color: 0xffaa00, 
+                        transparent: true, 
+                        opacity: 0.8,
+                        depthTest: false // Make it visible through parts
+                    });
                     let geometry: THREE.BufferGeometry;
 
                     if (joint.jointType === 'revolute' || joint.jointType === 'continuous') {
