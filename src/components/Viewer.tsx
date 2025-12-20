@@ -35,12 +35,14 @@ const Viewer: React.FC<ViewerProps> = (props) => {
     depthTest: false // Make it visible through other objects
   }));
 
-  // IMPORTANT: Use refs for callbacks to avoid stale closures in animate loop
+  // IMPORTANT: Use refs to avoid stale closures in event handlers/animate loop
   const onMatrixUpdateRef = useRef(onMatrixUpdate);
   const onSelectionUpdateRef = useRef(onSelectionUpdate);
+  const robotRef = useRef<URDFRobot | null>(robot);
   
   useEffect(() => { onMatrixUpdateRef.current = onMatrixUpdate; }, [onMatrixUpdate]);
   useEffect(() => { onSelectionUpdateRef.current = onSelectionUpdate; }, [onSelectionUpdate]);
+  useEffect(() => { robotRef.current = robot; }, [robot]);
 
   const unhighlight = () => {
     if (selectedObjectRef.current && originalMaterialRef.current) {
@@ -111,18 +113,28 @@ const Viewer: React.FC<ViewerProps> = (props) => {
 
     const handleContextMenu = (event: MouseEvent) => {
       event.preventDefault();
-      if (!mountRef.current || !camera || !scene) return;
+      if (!mountRef.current || !camera || !robotRef.current) return;
 
       const rect = mountRef.current.getBoundingClientRect();
       mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
       mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
       
       raycaster.setFromCamera(mouse, camera);
-      const intersects = raycaster.intersectObjects(scene.children, true);
+      
+      // Raycast ONLY against the robot model to avoid hitting the grid/axes
+      const intersects = raycaster.intersectObject(robotRef.current, true);
 
       let newSelection: URDFLink | URDFJoint | null = null;
       for (const intersect of intersects) {
         let object: THREE.Object3D | null = intersect.object;
+        
+        // Skip helper objects (axes, joint visuals, etc.)
+        // We can identify them by checking if they are the highlighting mesh 
+        // or if they have specific names we assigned like 'joint-helper'
+        if (object.name === 'joint-helper' || object.name === 'axes-helper-link' || object.name === 'axes-helper-joint') {
+            continue;
+        }
+
         while (object) {
           if ((object as any).isURDFLink || (object as any).isURDFJoint) {
             newSelection = object as URDFLink | URDFJoint;
@@ -130,6 +142,7 @@ const Viewer: React.FC<ViewerProps> = (props) => {
           }
           object = object.parent;
         }
+        
         if (newSelection) break;
       }
 
