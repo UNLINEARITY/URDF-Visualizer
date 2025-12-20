@@ -6,6 +6,7 @@ import { URDFRobot, URDFJoint, URDFLink } from 'urdf-loader';
 interface ViewerProps {
   robot: URDFRobot | null;
   isAltPressed: boolean;
+  selectedJoint: URDFJoint | null;
   showWorldAxes: boolean;
   showGrid: boolean;
   showLinkAxes: boolean;
@@ -17,7 +18,7 @@ interface ViewerProps {
 }
 
 const Viewer: React.FC<ViewerProps> = (props) => {
-  const { robot, isAltPressed, showWorldAxes, showGrid, showLinkAxes, showJointAxes, wireframe, onSelectionUpdate, onJointSelect, onMatrixUpdate } = props;
+  const { robot, isAltPressed, selectedJoint, showWorldAxes, showGrid, showLinkAxes, showJointAxes, wireframe, onSelectionUpdate, onJointSelect, onMatrixUpdate } = props;
   const mountRef = useRef<HTMLDivElement>(null);
 
   // Refs for three.js objects
@@ -27,14 +28,24 @@ const Viewer: React.FC<ViewerProps> = (props) => {
   const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
   
-  // Refs for selection and highlighting
-  const selectedObjectRef = useRef<URDFLink | URDFJoint | null>(null);
-  const originalMaterialRef = useRef<THREE.Material | THREE.Material[] | null>(null);
-  const highlightMaterialRef = useRef(new THREE.MeshBasicMaterial({
-    color: 0xffff00,
-    transparent: true,
+  // Refs for selection and highlighting (LINK)
+  const selectedLinkRef = useRef<URDFLink | null>(null);
+  const originalLinkMaterialRef = useRef<THREE.Material | THREE.Material[] | null>(null);
+  const linkHighlightMaterialRef = useRef(new THREE.MeshBasicMaterial({ 
+    color: 0xffff00, 
+    transparent: true, 
     opacity: 0.5,
-    depthTest: false // Make it visible through other objects
+    depthTest: false 
+  }));
+
+  // Refs for selection and highlighting (JOINT)
+  const selectedJointHelperRef = useRef<THREE.Mesh | null>(null);
+  const originalJointMaterialRef = useRef<THREE.Material | THREE.Material[] | null>(null);
+  const jointHighlightMaterialRef = useRef(new THREE.MeshBasicMaterial({ 
+    color: 0x00ffff, // Cyan for joints
+    transparent: true, 
+    opacity: 0.8,
+    depthTest: false 
   }));
 
   // IMPORTANT: Use refs to avoid stale closures in event handlers/animate loop
@@ -50,16 +61,38 @@ const Viewer: React.FC<ViewerProps> = (props) => {
   useEffect(() => { isAltPressedRef.current = isAltPressed; }, [isAltPressed]);
   useEffect(() => { robotRef.current = robot; }, [robot]);
 
-  const unhighlight = () => {
-    if (selectedObjectRef.current && originalMaterialRef.current) {
-      const mesh = selectedObjectRef.current.getObjectByProperty('isMesh', true) as THREE.Mesh;
+  const unhighlightLink = () => {
+    if (selectedLinkRef.current && originalLinkMaterialRef.current) {
+      const mesh = selectedLinkRef.current.getObjectByProperty('isMesh', true) as THREE.Mesh;
       if (mesh) {
-        mesh.material = originalMaterialRef.current as THREE.Material;
+        mesh.material = originalLinkMaterialRef.current as THREE.Material;
       }
     }
-    selectedObjectRef.current = null;
-    originalMaterialRef.current = null;
+    selectedLinkRef.current = null;
+    originalLinkMaterialRef.current = null;
   };
+
+  const unhighlightJoint = () => {
+    if (selectedJointHelperRef.current && originalJointMaterialRef.current) {
+      selectedJointHelperRef.current.material = originalJointMaterialRef.current as THREE.Material;
+    }
+    selectedJointHelperRef.current = null;
+    originalJointMaterialRef.current = null;
+  };
+
+  // Handle external joint selection (highlighting the JOINT HELPER)
+  useEffect(() => {
+      unhighlightJoint();
+      if (selectedJoint) {
+          // Find the joint-helper mesh
+          const helper = selectedJoint.children.find(c => c.name === 'joint-helper') as THREE.Mesh;
+          if (helper) {
+              selectedJointHelperRef.current = helper;
+              originalJointMaterialRef.current = helper.material;
+              helper.material = jointHighlightMaterialRef.current;
+          }
+      }
+  }, [selectedJoint]);
   
   // 1. Scene Initialization
   useEffect(() => {
@@ -100,10 +133,10 @@ const Viewer: React.FC<ViewerProps> = (props) => {
       animationFrameId = requestAnimationFrame(animate);
       controls.update();
 
-      if (selectedObjectRef.current) {
-        selectedObjectRef.current.updateWorldMatrix(true, false);
+      if (selectedLinkRef.current) {
+        selectedLinkRef.current.updateWorldMatrix(true, false);
         // Clone the matrix to force React state update (Three.js reuses the instance)
-        onMatrixUpdateRef.current(selectedObjectRef.current.matrixWorld.clone());
+        onMatrixUpdateRef.current(selectedLinkRef.current.matrixWorld.clone());
       }
 
       renderer.render(scene, camera);
@@ -135,12 +168,9 @@ const Viewer: React.FC<ViewerProps> = (props) => {
       if (isAltPressedRef.current) {
           if (intersects.length > 0) {
               let object = intersects[0].object;
-              console.log("Alt+Click Hit:", object.name, object.type);
-              
               // Traverse up to find the Link, then its Parent Joint
               let link: URDFLink | null = null;
               while (object) {
-                  console.log("Traversing up:", object.name, "isURDFLink:", (object as any).isURDFLink, "isURDFJoint:", (object as any).isURDFJoint);
                   if ((object as any).isURDFLink) {
                       link = object as URDFLink;
                       break;
@@ -148,32 +178,19 @@ const Viewer: React.FC<ViewerProps> = (props) => {
                   object = object.parent as THREE.Object3D;
               }
 
-              if (link) {
-                  console.log("Found Link:", link.name);
-                  if (link.parent) {
-                       console.log("Link Parent:", link.parent.name, "isURDFJoint:", (link.parent as any).isURDFJoint);
-                       if ((link.parent as any).isURDFJoint) {
-                           const joint = link.parent as URDFJoint;
-                           // Only select if it's a movable joint
-                           if (joint.jointType !== 'fixed') {
-                                console.log("Selecting Joint:", joint.name);
-                                onJointSelectRef.current(joint);
-                           } else {
-                               console.log("Joint is fixed, ignoring.");
-                           }
-                       }
-                  } else {
-                      console.log("Link has no parent.");
+              if (link && link.parent && (link.parent as any).isURDFJoint) {
+                  const joint = link.parent as URDFJoint;
+                  // Only select if it's a movable joint
+                  if (joint.jointType !== 'fixed') {
+                     onJointSelectRef.current(joint);
                   }
-              } else {
-                  console.log("Could not find URDFLink in ancestry.");
               }
           }
-          return; // Stop here, do not do standard selection
+          return; 
       }
 
       // --- STANDARD LOGIC: Link/Part Selection ---
-      let newSelection: URDFLink | URDFJoint | null = null;
+      let newSelection: URDFLink | null = null;
       for (const intersect of intersects) {
         let object: THREE.Object3D | null = intersect.object;
         
@@ -183,8 +200,8 @@ const Viewer: React.FC<ViewerProps> = (props) => {
         }
 
         while (object) {
-          if ((object as any).isURDFLink || (object as any).isURDFJoint) {
-            newSelection = object as URDFLink | URDFJoint;
+          if ((object as any).isURDFLink) {
+            newSelection = object as URDFLink;
             break;
           }
           object = object.parent;
@@ -193,17 +210,17 @@ const Viewer: React.FC<ViewerProps> = (props) => {
         if (newSelection) break;
       }
 
-      if (newSelection && newSelection === selectedObjectRef.current) {
-        unhighlight();
+      if (newSelection && newSelection === selectedLinkRef.current) {
+        unhighlightLink();
         onSelectionUpdateRef.current(null, null);
       } else {
-        unhighlight();
+        unhighlightLink();
         if (newSelection) {
             const mesh = newSelection.getObjectByProperty('isMesh', true) as THREE.Mesh;
             if (mesh) {
-              selectedObjectRef.current = newSelection;
-              originalMaterialRef.current = mesh.material;
-              mesh.material = highlightMaterialRef.current;
+              selectedLinkRef.current = newSelection;
+              originalLinkMaterialRef.current = mesh.material;
+              mesh.material = linkHighlightMaterialRef.current;
             }
             onSelectionUpdateRef.current(newSelection.name, newSelection.matrixWorld);
         } else {
@@ -231,7 +248,8 @@ const Viewer: React.FC<ViewerProps> = (props) => {
     const scene = sceneRef.current;
     if (!scene) return;
     
-    unhighlight();
+    unhighlightLink();
+    unhighlightJoint();
     onSelectionUpdateRef.current(null, null);
 
     if (robot) {
@@ -251,12 +269,13 @@ const Viewer: React.FC<ViewerProps> = (props) => {
         // Wireframe
         robot.traverse(c => {
             const mesh = c.getObjectByProperty('isMesh', true) as THREE.Mesh;
-            if (mesh && mesh.material !== highlightMaterialRef.current) {
+            if (mesh && 
+                mesh.material !== linkHighlightMaterialRef.current && 
+                mesh.material !== jointHighlightMaterialRef.current) {
               const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
               materials.forEach(m => { m.wireframe = wireframe; });
             }
         });
-
         // Link Axes
         robot.traverse(c => {
             if ((c as any).isURDFLink) {
