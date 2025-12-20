@@ -26,23 +26,48 @@ function App() {
   
   const [sampleFiles, setSampleFiles] = useState<string[]>([]);
   
-  // Unified state for the selection and popup
+  // -- State for the selection, popup, and position memory --
   const [selection, setSelection] = useState<SelectionInfo>({
     name: null,
     matrix: null,
     visible: false,
     position: { x: 0, y: 0 },
   });
+  const [preferredPosition, setPreferredPosition] = useState<{x: number, y: number} | null>(null);
 
-  // Callback to be passed to Viewer for selection updates
-  const handleSelectionUpdate = useCallback((name: string | null, matrix: THREE.Matrix4 | null, event?: MouseEvent) => {
-    setSelection(prev => ({
+  // Updates the popup's matrix in real-time, without changing its position
+  const handleRealtimeUpdate = useCallback((matrix: THREE.Matrix4) => {
+    setSelection(prev => ({ ...prev, matrix }));
+  }, []);
+  
+  // Handles the initial selection event
+  const handleSelectionUpdate = useCallback((name: string | null, matrix: THREE.Matrix4 | null) => {
+    if (!name) {
+        // If nothing is selected, hide the popup
+        setSelection(prev => ({...prev, visible: false, name: null, matrix: null}));
+        return;
+    }
+    
+    // Show the popup at the preferred position, or centered if no preference exists
+    const position = preferredPosition || {
+        x: window.innerWidth / 2 - 150, // center it (150 is approx half popup width)
+        y: window.innerHeight / 2 - 200, // center it
+    };
+
+    setSelection({
       name: name,
       matrix: matrix,
-      visible: !!name,
-      position: event ? { x: event.clientX, y: event.clientY } : prev.position,
-    }));
-  }, []);
+      visible: true,
+      position: position,
+    });
+  }, [preferredPosition]);
+
+  // Handles dragging the popup
+  const handlePopupDrag = (x: number, y: number) => {
+    const newPos = { x, y };
+    setSelection(prev => ({ ...prev, position: newPos }));
+    setPreferredPosition(newPos);
+  };
 
   const closePopup = () => {
     setSelection(prev => ({ ...prev, visible: false, name: null, matrix: null }));
@@ -194,6 +219,7 @@ function App() {
                 top={selection.position.y}
                 left={selection.position.x}
                 onClose={closePopup}
+                onPositionChange={handlePopupDrag}
             />
         )}
         <Viewer
@@ -202,6 +228,7 @@ function App() {
           showGrid={showGrid}
           wireframe={wireframe}
           onSelectionUpdate={handleSelectionUpdate}
+          onMatrixUpdate={handleRealtimeUpdate}
         />
       </div>
     </div>

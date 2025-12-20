@@ -84,7 +84,7 @@ canvas {
     color: #eee;
     padding: 0.8rem;
     font-size: 0.9rem;
-    z-index: 100;
+    z-index: 1000;
     pointer-events: all;
 }
 
