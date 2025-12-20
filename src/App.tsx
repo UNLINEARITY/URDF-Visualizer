@@ -2,6 +2,9 @@ import React, { useState, useCallback, useEffect } from 'react';
 import URDFLoader, { URDFRobot, URDFJoint } from 'urdf-loader';
 import { XacroParser } from 'xacro-parser';
 import * as THREE from 'three';
+import { STLLoader } from 'three/examples/jsm/loaders/STLLoader.js';
+import { ColladaLoader } from 'three/examples/jsm/loaders/ColladaLoader.js';
+import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader.js';
 import Viewer from './components/Viewer';
 import JointController from './components/JointController';
 import DisplayOptions from './components/DisplayOptions';
@@ -24,6 +27,7 @@ interface JointSelection {
 function App() {
   const [robot, setRobot] = useState<URDFRobot | null>(null);
   const [urdfContent, setUrdfContent] = useState<string | null>(null);
+  const [currentFilePath, setCurrentFilePath] = useState<string>('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -174,23 +178,61 @@ function App() {
     setTimeout(() => {
       const manager = new THREE.LoadingManager();
       
-      // Setup URL Modifier to handle package:// URIs
+      // Determine the base path of the current model
+      const parts = currentFilePath.split('/');
+      const modelPackageRoot = parts.length > 1 ? parts[0] : '';
+
+      // Setup URL Modifier to handle package:// and relative paths
       manager.setURLModifier((url) => {
+          console.log("Loading resource:", url);
+          
           if (url.startsWith('package://')) {
-              // Convert package://pkg_name/path/to/file 
-              // to /api/assets/pkg_name/path/to/file
               return url.replace('package://', '/api/assets/');
           }
+          
+          // If it's a relative path (doesn't start with / or http)
+          if (!url.startsWith('/') && !url.startsWith('http')) {
+              // Redirect to the package root in our assets API
+              // e.g., "meshes/head.STL" -> "/api/assets/g1/meshes/head.STL"
+              return `/api/assets/${modelPackageRoot}/${url}`;
+          }
+          
           return url;
       });
 
       const loader = new URDFLoader(manager);
+      
+      // Explicitly define how to load meshes
+      const stlLoader = new STLLoader(manager);
+      const daeLoader = new ColladaLoader(manager);
+      const objLoader = new OBJLoader(manager);
+
+      loader.meshLoader = (path, ext, done) => {
+          if (ext.toLowerCase() === 'stl') {
+              stlLoader.load(path, geom => {
+                  const mesh = new THREE.Mesh(geom, new THREE.MeshStandardMaterial());
+                  done(mesh);
+              });
+          } else if (ext.toLowerCase() === 'dae') {
+              daeLoader.load(path, collada => {
+                  done(collada.scene);
+              });
+          } else if (ext.toLowerCase() === 'obj') {
+              objLoader.load(path, obj => {
+                  done(obj);
+              });
+          } else {
+              console.warn(`No loader for extension: ${ext}`);
+              done(new THREE.Group());
+          }
+      };
+
       loader.loadCollision = false;
 
       manager.onLoad = () => setLoading(false);
       manager.onError = (url) => {
-        setError(`Failed to load resource: ${url}`);
-        setLoading(false);
+        console.error(`Failed to load resource: ${url}`);
+        // Don't set error state here to avoid interrupting the whole robot load
       };
 
       try {
@@ -198,7 +240,7 @@ function App() {
         setRobot(loadedRobot);
       } catch (err) {
         console.error('Error parsing URDF:', err);
-        setError('Failed to parse URDF file. Check content for errors.');
+        setError(`Failed to parse URDF: ${err instanceof Error ? err.message : String(err)}`);
         setLoading(false);
       }
 
@@ -277,6 +319,7 @@ function App() {
       const reader = new FileReader();
       reader.onload = (e) => {
         const content = e.target?.result as string;
+        setCurrentFilePath(file.name);
         processAndSetContent(file.name, content);
       };
       reader.onerror = () => {
@@ -302,6 +345,7 @@ function App() {
         return res.text();
       })
       .then(content => {
+        setCurrentFilePath(filename);
         processAndSetContent(filename, content);
       })
       .catch(err => {
