@@ -22,6 +22,8 @@ function App() {
   // Display options state
   const [showWorldAxes, setShowWorldAxes] = useState(true);
   const [showGrid, setShowGrid] = useState(true);
+  const [showLinkAxes, setShowLinkAxes] = useState(false);
+  const [showJointAxes, setShowJointAxes] = useState(false);
   const [wireframe, setWireframe] = useState(false);
   
   const [sampleFiles, setSampleFiles] = useState<string[]>([]);
@@ -140,6 +142,8 @@ function App() {
       switch (e.key.toLowerCase()) {
         case 'w': setShowWorldAxes(v => !v); break;
         case 'g': setShowGrid(v => !v); break;
+        case 'l': setShowLinkAxes(v => !v); break;
+        case 'j': setShowJointAxes(v => !v); break;
         case 'f': setWireframe(v => !v); break;
         case 'escape': closePopup(); break;
       }
@@ -204,6 +208,8 @@ function App() {
         <DisplayOptions
             showWorldAxes={showWorldAxes} setShowWorldAxes={setShowWorldAxes}
             showGrid={showGrid} setShowGrid={setShowGrid}
+            showLinkAxes={showLinkAxes} setShowLinkAxes={setShowLinkAxes}
+            showJointAxes={showJointAxes} setShowJointAxes={setShowJointAxes}
             wireframe={wireframe} setWireframe={setWireframe}
         />
         <hr />
@@ -226,6 +232,8 @@ function App() {
           robot={robot}
           showWorldAxes={showWorldAxes}
           showGrid={showGrid}
+          showLinkAxes={showLinkAxes}
+          showJointAxes={showJointAxes}
           wireframe={wireframe}
           onSelectionUpdate={handleSelectionUpdate}
           onMatrixUpdate={handleRealtimeUpdate}
