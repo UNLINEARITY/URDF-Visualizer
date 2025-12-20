@@ -5,17 +5,19 @@ import { URDFRobot, URDFJoint, URDFLink } from 'urdf-loader';
 
 interface ViewerProps {
   robot: URDFRobot | null;
+  isAltPressed: boolean;
   showWorldAxes: boolean;
   showGrid: boolean;
   showLinkAxes: boolean;
   showJointAxes: boolean;
   wireframe: boolean;
   onSelectionUpdate: (name: string | null, matrix: THREE.Matrix4 | null) => void;
+  onJointSelect: (joint: URDFJoint) => void;
   onMatrixUpdate: (matrix: THREE.Matrix4) => void;
 }
 
 const Viewer: React.FC<ViewerProps> = (props) => {
-  const { robot, showWorldAxes, showGrid, showLinkAxes, showJointAxes, wireframe, onSelectionUpdate, onMatrixUpdate } = props;
+  const { robot, isAltPressed, showWorldAxes, showGrid, showLinkAxes, showJointAxes, wireframe, onSelectionUpdate, onJointSelect, onMatrixUpdate } = props;
   const mountRef = useRef<HTMLDivElement>(null);
 
   // Refs for three.js objects
@@ -28,9 +30,9 @@ const Viewer: React.FC<ViewerProps> = (props) => {
   // Refs for selection and highlighting
   const selectedObjectRef = useRef<URDFLink | URDFJoint | null>(null);
   const originalMaterialRef = useRef<THREE.Material | THREE.Material[] | null>(null);
-  const highlightMaterialRef = useRef(new THREE.MeshBasicMaterial({ 
-    color: 0xffff00, 
-    transparent: true, 
+  const highlightMaterialRef = useRef(new THREE.MeshBasicMaterial({
+    color: 0xffff00,
+    transparent: true,
     opacity: 0.5,
     depthTest: false // Make it visible through other objects
   }));
@@ -38,10 +40,14 @@ const Viewer: React.FC<ViewerProps> = (props) => {
   // IMPORTANT: Use refs to avoid stale closures in event handlers/animate loop
   const onMatrixUpdateRef = useRef(onMatrixUpdate);
   const onSelectionUpdateRef = useRef(onSelectionUpdate);
+  const onJointSelectRef = useRef(onJointSelect);
+  const isAltPressedRef = useRef(isAltPressed);
   const robotRef = useRef<URDFRobot | null>(robot);
   
   useEffect(() => { onMatrixUpdateRef.current = onMatrixUpdate; }, [onMatrixUpdate]);
   useEffect(() => { onSelectionUpdateRef.current = onSelectionUpdate; }, [onSelectionUpdate]);
+  useEffect(() => { onJointSelectRef.current = onJointSelect; }, [onJointSelect]);
+  useEffect(() => { isAltPressedRef.current = isAltPressed; }, [isAltPressed]);
   useEffect(() => { robotRef.current = robot; }, [robot]);
 
   const unhighlight = () => {
@@ -123,14 +129,40 @@ const Viewer: React.FC<ViewerProps> = (props) => {
       
       // Raycast ONLY against the robot model to avoid hitting the grid/axes
       const intersects = raycaster.intersectObject(robotRef.current, true);
+      
+      // --- ALT KEY LOGIC: Joint Selection ---
+      if (isAltPressedRef.current) {
+          if (intersects.length > 0) {
+              let object = intersects[0].object;
+              // Traverse up to find the Link, then its Parent Joint
+              let link: URDFLink | null = null;
+              while (object) {
+                  if ((object as any).isURDFLink) {
+                      link = object as URDFLink;
+                      break;
+                  }
+                  object = object.parent as THREE.Object3D;
+              }
 
+              if (link && link.parent && (link.parent as any).isURDFJoint) {
+                  const joint = link.parent as URDFJoint;
+                  // Only select if it's a movable joint
+                  if (joint.jointType !== 'fixed') {
+                     onJointSelectRef.current(joint);
+                     // Optional: visual feedback for joint selection?
+                     // For now, the popup is enough.
+                  }
+              }
+          }
+          return; // Stop here, do not do standard selection
+      }
+
+      // --- STANDARD LOGIC: Link/Part Selection ---
       let newSelection: URDFLink | URDFJoint | null = null;
       for (const intersect of intersects) {
         let object: THREE.Object3D | null = intersect.object;
         
-        // Skip helper objects (axes, joint visuals, etc.)
-        // We can identify them by checking if they are the highlighting mesh 
-        // or if they have specific names we assigned like 'joint-helper'
+        // Skip helper objects
         if (object.name === 'joint-helper' || object.name === 'axes-helper-link' || object.name === 'axes-helper-joint') {
             continue;
         }
@@ -198,6 +230,8 @@ const Viewer: React.FC<ViewerProps> = (props) => {
 
   // 3. Display Toggles
   useEffect(() => {
+    const effectiveShowJointAxes = showJointAxes || isAltPressed;
+
     if (robot) {
         // Wireframe
         robot.traverse(c => {
@@ -227,7 +261,7 @@ const Viewer: React.FC<ViewerProps> = (props) => {
                 const joint = c as URDFJoint;
                 let helper = joint.children.find(child => child.name === 'joint-helper');
                 
-                if (showJointAxes && !helper) {
+                if (effectiveShowJointAxes && !helper) {
                     const material = new THREE.MeshBasicMaterial({ color: 0xffaa00, transparent: true, opacity: 0.8 });
                     let geometry: THREE.BufferGeometry;
 
@@ -256,11 +290,11 @@ const Viewer: React.FC<ViewerProps> = (props) => {
                     joint.add(helper);
                 }
                 
-                if (helper) helper.visible = showJointAxes;
+                if (helper) helper.visible = effectiveShowJointAxes;
             }
         });
     }
-  }, [robot, wireframe, showLinkAxes, showJointAxes]);
+  }, [robot, wireframe, showLinkAxes, showJointAxes, isAltPressed]);
 
   useEffect(() => {
     if (gridRef.current) gridRef.current.visible = showGrid;

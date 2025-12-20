@@ -1,32 +1,19 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { URDFRobot, URDFJoint } from 'urdf-loader';
 
 interface JointControllerProps {
   robot: URDFRobot;
+  jointValues: Record<string, number>;
+  onJointChange: (name: string, value: number) => void;
 }
 
-const JointController: React.FC<JointControllerProps> = ({ robot }) => {
+const JointController: React.FC<JointControllerProps> = ({ robot, jointValues, onJointChange }) => {
   const movableJoints = Object.values(robot.joints).filter(
     (joint) => joint.jointType !== 'fixed'
   );
 
-  const getInitialState = () => {
-    const initialState: Record<string, number> = {};
-    movableJoints.forEach((joint) => {
-      initialState[joint.name] = joint.angle || 0;
-    });
-    return initialState;
-  };
-
-  const [jointValues, setJointValues] = useState<Record<string, number>>(getInitialState);
-
-  useEffect(() => {
-    setJointValues(getInitialState());
-  }, [robot]);
-
   const handleSliderChange = (jointName: string, value: number) => {
-    robot.setJointValue(jointName, value);
-    setJointValues((prev) => ({ ...prev, [jointName]: value }));
+    onJointChange(jointName, value);
   };
 
   if (movableJoints.length === 0) {

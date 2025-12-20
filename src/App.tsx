@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect } from 'react';
-import URDFLoader, { URDFRobot } from 'urdf-loader';
+import URDFLoader, { URDFRobot, URDFJoint } from 'urdf-loader';
 import { XacroParser } from 'xacro-parser';
 import * as THREE from 'three';
 import Viewer from './components/Viewer';
@@ -7,9 +7,15 @@ import JointController from './components/JointController';
 import DisplayOptions from './components/DisplayOptions';
 import InfoPopup from './components/InfoPopup';
 
-interface SelectionInfo {
+interface LinkSelection {
   name: string | null;
   matrix: THREE.Matrix4 | null;
+  visible: boolean;
+  position: { x: number; y: number; };
+}
+
+interface JointSelection {
+  joint: URDFJoint | null;
   visible: boolean;
   position: { x: number; y: number; };
 }
@@ -27,54 +33,104 @@ function App() {
   const [showJointAxes, setShowJointAxes] = useState(false);
   const [wireframe, setWireframe] = useState(false);
   
+  const [isAltPressed, setIsAltPressed] = useState(false);
   const [sampleFiles, setSampleFiles] = useState<string[]>([]);
   
-  // -- State for the selection, popup, and position memory --
-  const [selection, setSelection] = useState<SelectionInfo>({
+  // -- GLOBAL JOINT STATE --
+  const [jointValues, setJointValues] = useState<Record<string, number>>({});
+
+  // -- Independent Selection States --
+  const [linkSelection, setLinkSelection] = useState<LinkSelection>({
     name: null,
     matrix: null,
     visible: false,
     position: { x: 0, y: 0 },
   });
-  const [preferredPosition, setPreferredPosition] = useState<{x: number, y: number} | null>(null);
+  
+  const [jointSelection, setJointSelection] = useState<JointSelection>({
+    joint: null,
+    visible: false,
+    position: { x: 0, y: 0 },
+  });
 
-  // Updates the popup's matrix in real-time, without changing its position
+  const lastLinkPosRef = React.useRef<{x: number, y: number} | null>(null);
+  const lastJointPosRef = React.useRef<{x: number, y: number} | null>(null);
+
+  // Initialize joint values when robot loads
+  useEffect(() => {
+    if (robot) {
+        const initialValues: Record<string, number> = {};
+        Object.values(robot.joints).forEach(j => {
+            if (j.jointType !== 'fixed') {
+                initialValues[j.name] = j.angle as number || 0;
+            }
+        });
+        setJointValues(initialValues);
+    }
+  }, [robot]);
+
+  // Updates the LINK popup's matrix in real-time
   const handleRealtimeUpdate = useCallback((matrix: THREE.Matrix4) => {
-    setSelection(prev => ({ ...prev, matrix }));
+    setLinkSelection(prev => {
+        if (!prev.visible) return prev;
+        return { ...prev, matrix };
+    });
   }, []);
   
-  // Handles the initial selection event
+  // Handles Link Selection (Regular Right-Click)
   const handleSelectionUpdate = useCallback((name: string | null, matrix: THREE.Matrix4 | null) => {
-    if (!name) {
-        // If nothing is selected, hide the popup
-        setSelection(prev => ({...prev, visible: false, name: null, matrix: null}));
-        return;
-    }
-    
-    // Show the popup at the preferred position, or centered if no preference exists
-    const position = preferredPosition || {
-        x: window.innerWidth / 2 - 150, // center it (150 is approx half popup width)
-        y: window.innerHeight / 2 - 200, // center it
-    };
+      if (!name) {
+          setLinkSelection(prev => ({...prev, visible: false, name: null, matrix: null}));
+          return;
+      }
+      const position = lastLinkPosRef.current || {
+          x: window.innerWidth / 2 - 320, 
+          y: window.innerHeight / 2 - 200,
+      };
+      setLinkSelection({
+        name: name,
+        matrix: matrix,
+        visible: true,
+        position: position,
+      });
+  }, []);
 
-    setSelection({
-      name: name,
-      matrix: matrix,
-      visible: true,
-      position: position,
-    });
-  }, [preferredPosition]);
+  // Handles Joint Selection (Alt + Right-Click)
+  const handleJointSelect = useCallback((joint: URDFJoint) => {
+      const position = lastJointPosRef.current || {
+          x: window.innerWidth / 2 + 20, 
+          y: window.innerHeight / 2 - 200,
+      };
+      setJointSelection({
+          joint: joint,
+          visible: true,
+          position: position,
+      });
+  }, []);
 
-  // Handles dragging the popup
-  const handlePopupDrag = (x: number, y: number) => {
-    const newPos = { x, y };
-    setSelection(prev => ({ ...prev, position: newPos }));
-    setPreferredPosition(newPos);
+  // Global handler for joint changes (Syncs Controller, Popup, and Robot)
+  const handleJointChange = useCallback((name: string, value: number) => {
+      if (robot) {
+          robot.setJointValue(name, value);
+          setJointValues(prev => ({ ...prev, [name]: value }));
+      }
+  }, [robot]);
+
+  // Popup Drag Handlers
+  const handleLinkPopupDrag = (x: number, y: number) => {
+    const pos = { x, y };
+    setLinkSelection(prev => ({ ...prev, position: pos }));
+    lastLinkPosRef.current = pos;
+  };
+  
+  const handleJointPopupDrag = (x: number, y: number) => {
+    const pos = { x, y };
+    setJointSelection(prev => ({ ...prev, position: pos }));
+    lastJointPosRef.current = pos;
   };
 
-  const closePopup = () => {
-    setSelection(prev => ({ ...prev, visible: false, name: null, matrix: null }));
-  };
+  const closeLinkPopup = () => setLinkSelection(prev => ({ ...prev, visible: false }));
+  const closeJointPopup = () => setJointSelection(prev => ({ ...prev, visible: false }));
 
 
   // Effect to fetch the list of sample files from the backend
@@ -105,7 +161,9 @@ function App() {
     setLoading(true);
     setError(null);
     setRobot(null);
-    closePopup(); // Close popup when loading new model
+    // Close popups when loading new model
+    setLinkSelection(prev => ({ ...prev, visible: false }));
+    setJointSelection(prev => ({ ...prev, visible: false }));
 
     // Defer the parsing to allow the UI to update
     setTimeout(() => {
@@ -139,6 +197,10 @@ function App() {
   // Keyboard shortcuts effect
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Alt') {
+          setIsAltPressed(true);
+      }
+
       if (document.activeElement?.tagName === 'INPUT') return;
       switch (e.key.toLowerCase()) {
         case 'w': setShowWorldAxes(v => !v); break;
@@ -146,11 +208,25 @@ function App() {
         case 'l': setShowLinkAxes(v => !v); break;
         case 'j': setShowJointAxes(v => !v); break;
         case 'f': setWireframe(v => !v); break;
-        case 'escape': closePopup(); break;
+        case 'escape': 
+            closeLinkPopup(); 
+            closeJointPopup();
+            break;
       }
     };
+
+    const handleKeyUp = (e: KeyboardEvent) => {
+        if (e.key === 'Alt') {
+            setIsAltPressed(false);
+        }
+    };
+
     window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    window.addEventListener('keyup', handleKeyUp);
+    return () => {
+        window.removeEventListener('keydown', handleKeyDown);
+        window.removeEventListener('keyup', handleKeyUp);
+    };
   }, []);
 
   const processAndSetContent = async (filename: string, content: string) => {
@@ -158,23 +234,10 @@ function App() {
       setLoading(true);
       try {
         const parser = new XacroParser();
-        // Since we are in the browser, local includes won't work automatically.
-        // We can setup a basic loader if needed, but for now we assume self-contained Xacro
-        // or we need to handle fetching if it's a sample file.
         parser.rospackCommands = {
-           find: (pkg) => {
-             // Basic mock for rospack find. 
-             // Ideally this maps 'package_name' to a URL path if serving from server.
-             return `/api/assets/${pkg}`; 
-           }
+           find: (pkg) => `/api/assets/${pkg}`
         };
-        
         const xml = await parser.parse(content);
-        // The parser returns an XML Document or string? 
-        // xacro-parser usually returns an XML Document object or acts on it.
-        // Let's check the result type. If it's a Document, we serialize it.
-        // Actually, checking xacro-parser source/docs, it often returns the XML DOM.
-        
         const serializer = new XMLSerializer();
         const urdfString = serializer.serializeToString(xml);
         setUrdfContent(urdfString);
@@ -248,29 +311,55 @@ function App() {
             wireframe={wireframe} setWireframe={setWireframe}
         />
         <hr />
-        {robot && <JointController robot={robot} />}
+        {robot && (
+            <JointController 
+                robot={robot} 
+                jointValues={jointValues} 
+                onJointChange={handleJointChange} 
+            />
+        )}
         {error && <div style={{ color: 'red' }}>{error}</div>}
       </div>
       <div className="viewer-container">
         {loading && <div className="loading-indicator">Loading...</div>}
-        {selection.visible && (
+        
+        {/* Link Info Popup */}
+        {linkSelection.visible && (
             <InfoPopup
-                name={selection.name}
-                matrix={selection.matrix}
-                top={selection.position.y}
-                left={selection.position.x}
-                onClose={closePopup}
-                onPositionChange={handlePopupDrag}
+                name={linkSelection.name}
+                matrix={linkSelection.matrix}
+                top={linkSelection.position.y}
+                left={linkSelection.position.x}
+                onClose={closeLinkPopup}
+                onPositionChange={handleLinkPopupDrag}
             />
         )}
+
+        {/* Joint Control Popup */}
+        {jointSelection.visible && jointSelection.joint && (
+            <InfoPopup
+                name={jointSelection.joint.name}
+                matrix={null}
+                joint={jointSelection.joint}
+                value={jointValues[jointSelection.joint.name]}
+                onJointChange={(val) => handleJointChange(jointSelection.joint!.name, val)}
+                top={jointSelection.position.y}
+                left={jointSelection.position.x}
+                onClose={closeJointPopup}
+                onPositionChange={handleJointPopupDrag}
+            />
+        )}
+
         <Viewer
           robot={robot}
+          isAltPressed={isAltPressed}
           showWorldAxes={showWorldAxes}
           showGrid={showGrid}
           showLinkAxes={showLinkAxes}
           showJointAxes={showJointAxes}
           wireframe={wireframe}
           onSelectionUpdate={handleSelectionUpdate}
+          onJointSelect={handleJointSelect}
           onMatrixUpdate={handleRealtimeUpdate}
         />
       </div>
