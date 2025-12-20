@@ -208,16 +208,42 @@ const Viewer: React.FC<ViewerProps> = (props) => {
             }
         });
 
-        // Joint Axes
+        // Joint Visuals (Custom Shapes)
         robot.traverse(c => {
             if ((c as any).isURDFJoint) {
-                let axes = c.children.find(child => child.name === 'axes-helper-joint');
-                if (showJointAxes && !axes) {
-                    axes = new THREE.AxesHelper(0.1); // Smaller for joints
-                    axes.name = 'axes-helper-joint';
-                    c.add(axes);
+                const joint = c as URDFJoint;
+                let helper = joint.children.find(child => child.name === 'joint-helper');
+                
+                if (showJointAxes && !helper) {
+                    const material = new THREE.MeshBasicMaterial({ color: 0xffaa00, transparent: true, opacity: 0.8 });
+                    let geometry: THREE.BufferGeometry;
+
+                    if (joint.jointType === 'revolute' || joint.jointType === 'continuous') {
+                        // Cylinder for rotation: radius 0.05, height 0.02. Default is Y-up.
+                        geometry = new THREE.CylinderGeometry(0.05, 0.05, 0.02, 16);
+                    } else if (joint.jointType === 'prismatic') {
+                        // Box for translation: thin along Y (to match default alignment logic)
+                        geometry = new THREE.BoxGeometry(0.03, 0.1, 0.03);
+                    } else {
+                        // Sphere for fixed/others
+                        geometry = new THREE.SphereGeometry(0.03, 16, 16);
+                    }
+
+                    helper = new THREE.Mesh(geometry, material);
+                    helper.name = 'joint-helper';
+
+                    // Align helper with the joint's axis
+                    // URDF joints define an axis (default is 1,0,0 or 0,0,1 depending on parser, but usually available)
+                    if (joint.axis) {
+                        const axis = new THREE.Vector3().copy(joint.axis).normalize();
+                        const defaultUp = new THREE.Vector3(0, 1, 0); // Three.js Cylinder/Box default orientation
+                        helper.quaternion.setFromUnitVectors(defaultUp, axis);
+                    }
+
+                    joint.add(helper);
                 }
-                if (axes) axes.visible = showJointAxes;
+                
+                if (helper) helper.visible = showJointAxes;
             }
         });
     }
