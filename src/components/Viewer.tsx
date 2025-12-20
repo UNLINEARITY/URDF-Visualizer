@@ -7,13 +7,15 @@ interface ViewerProps {
   robot: URDFRobot | null;
   showWorldAxes: boolean;
   showGrid: boolean;
+  showLinkAxes: boolean;
+  showJointAxes: boolean;
   wireframe: boolean;
   onSelectionUpdate: (name: string | null, matrix: THREE.Matrix4 | null) => void;
   onMatrixUpdate: (matrix: THREE.Matrix4) => void;
 }
 
 const Viewer: React.FC<ViewerProps> = (props) => {
-  const { robot, showWorldAxes, showGrid, wireframe, onSelectionUpdate, onMatrixUpdate } = props;
+  const { robot, showWorldAxes, showGrid, showLinkAxes, showJointAxes, wireframe, onSelectionUpdate, onMatrixUpdate } = props;
   const mountRef = useRef<HTMLDivElement>(null);
 
   // Refs for three.js objects
@@ -184,6 +186,7 @@ const Viewer: React.FC<ViewerProps> = (props) => {
   // 3. Display Toggles
   useEffect(() => {
     if (robot) {
+        // Wireframe
         robot.traverse(c => {
             const mesh = c.getObjectByProperty('isMesh', true) as THREE.Mesh;
             if (mesh && mesh.material !== highlightMaterialRef.current) {
@@ -191,8 +194,34 @@ const Viewer: React.FC<ViewerProps> = (props) => {
               materials.forEach(m => { m.wireframe = wireframe; });
             }
         });
+
+        // Link Axes
+        robot.traverse(c => {
+            if ((c as any).isURDFLink) {
+                let axes = c.children.find(child => child.name === 'axes-helper-link');
+                if (showLinkAxes && !axes) {
+                    axes = new THREE.AxesHelper(0.2); // Larger for links
+                    axes.name = 'axes-helper-link';
+                    c.add(axes);
+                }
+                if (axes) axes.visible = showLinkAxes;
+            }
+        });
+
+        // Joint Axes
+        robot.traverse(c => {
+            if ((c as any).isURDFJoint) {
+                let axes = c.children.find(child => child.name === 'axes-helper-joint');
+                if (showJointAxes && !axes) {
+                    axes = new THREE.AxesHelper(0.1); // Smaller for joints
+                    axes.name = 'axes-helper-joint';
+                    c.add(axes);
+                }
+                if (axes) axes.visible = showJointAxes;
+            }
+        });
     }
-  }, [robot, wireframe]);
+  }, [robot, wireframe, showLinkAxes, showJointAxes]);
 
   useEffect(() => {
     if (gridRef.current) gridRef.current.visible = showGrid;
