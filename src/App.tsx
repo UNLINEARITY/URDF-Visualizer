@@ -10,6 +10,7 @@ import InfoPopup from './components/InfoPopup';
 interface LinkSelection {
   name: string | null;
   matrix: THREE.Matrix4 | null;
+  parentMatrix: THREE.Matrix4 | null;
   visible: boolean;
   position: { x: number; y: number; };
 }
@@ -43,6 +44,7 @@ function App() {
   const [linkSelection, setLinkSelection] = useState<LinkSelection>({
     name: null,
     matrix: null,
+    parentMatrix: null,
     visible: false,
     position: { x: 0, y: 0 },
   });
@@ -68,30 +70,33 @@ function App() {
         setJointValues(initialValues);
     }
   }, [robot]);
-
-  // Updates the LINK popup's matrix in real-time
-  const handleRealtimeUpdate = useCallback((matrix: THREE.Matrix4) => {
-    setLinkSelection(prev => {
-        if (!prev.visible) return prev;
-        return { ...prev, matrix };
-    });
-  }, []);
   
-  // Handles Link Selection (Regular Right-Click)
-  const handleSelectionUpdate = useCallback((name: string | null, matrix: THREE.Matrix4 | null) => {
+  // Handles Link Selection & Updates (Called by Viewer on click AND in animate loop)
+  const handleSelectionUpdate = useCallback((name: string | null, matrix: THREE.Matrix4 | null, parentMatrix: THREE.Matrix4 | null) => {
       if (!name) {
-          setLinkSelection(prev => ({...prev, visible: false, name: null, matrix: null}));
+          setLinkSelection(prev => ({...prev, visible: false, name: null, matrix: null, parentMatrix: null}));
           return;
       }
+      // If we are just updating the matrix of the SAME link, preserve position
+      // If it's a NEW link, use lastLinkPosRef or default.
+      // Actually, since this is called every frame, we should just trust lastLinkPosRef 
+      // or the current state position if we wanted to be super precise, but ref is fine.
       const position = lastLinkPosRef.current || {
           x: window.innerWidth / 2 - 320, 
           y: window.innerHeight / 2 - 200,
       };
-      setLinkSelection({
-        name: name,
-        matrix: matrix,
-        visible: true,
-        position: position,
+      
+      setLinkSelection(prev => {
+          // Optimization: check if matrix actually changed significantly? 
+          // React state update is cheap if reference is same, but here we clone matrix every frame.
+          // It's okay for now.
+          return {
+            name: name,
+            matrix: matrix,
+            parentMatrix: parentMatrix,
+            visible: true,
+            position: prev.visible ? prev.position : position, // Keep current pos if visible (dragging), else jump to default/mem
+          };
       });
   }, []);
 
@@ -328,6 +333,7 @@ function App() {
             <InfoPopup
                 name={linkSelection.name}
                 matrix={linkSelection.matrix}
+                parentMatrix={linkSelection.parentMatrix}
                 top={linkSelection.position.y}
                 left={linkSelection.position.x}
                 onClose={closeLinkPopup}
@@ -361,7 +367,7 @@ function App() {
           wireframe={wireframe}
           onSelectionUpdate={handleSelectionUpdate}
           onJointSelect={handleJointSelect}
-          onMatrixUpdate={handleRealtimeUpdate}
+          onMatrixUpdate={() => {}} // No-op, driven by onSelectionUpdate now
         />
       </div>
     </div>

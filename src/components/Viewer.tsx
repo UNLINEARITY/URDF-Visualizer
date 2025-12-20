@@ -12,7 +12,7 @@ interface ViewerProps {
   showLinkAxes: boolean;
   showJointAxes: boolean;
   wireframe: boolean;
-  onSelectionUpdate: (name: string | null, matrix: THREE.Matrix4 | null) => void;
+  onSelectionUpdate: (name: string | null, matrix: THREE.Matrix4 | null, parentMatrix: THREE.Matrix4 | null) => void;
   onJointSelect: (joint: URDFJoint) => void;
   onMatrixUpdate: (matrix: THREE.Matrix4) => void;
 }
@@ -30,6 +30,7 @@ const Viewer: React.FC<ViewerProps> = (props) => {
   
   // Refs for selection and highlighting (LINK)
   const selectedLinkRef = useRef<URDFLink | null>(null);
+  const selectedLinkParentRef = useRef<URDFLink | null>(null);
   const originalLinkMaterialRef = useRef<THREE.Material | THREE.Material[] | null>(null);
   const linkHighlightMaterialRef = useRef(new THREE.MeshBasicMaterial({ 
     color: 0xffff00, 
@@ -69,6 +70,7 @@ const Viewer: React.FC<ViewerProps> = (props) => {
       }
     }
     selectedLinkRef.current = null;
+    selectedLinkParentRef.current = null;
     originalLinkMaterialRef.current = null;
   };
 
@@ -135,8 +137,19 @@ const Viewer: React.FC<ViewerProps> = (props) => {
 
       if (selectedLinkRef.current) {
         selectedLinkRef.current.updateWorldMatrix(true, false);
+        
+        let parentMatrix: THREE.Matrix4 | null = null;
+        if (selectedLinkParentRef.current) {
+            selectedLinkParentRef.current.updateWorldMatrix(true, false);
+            parentMatrix = selectedLinkParentRef.current.matrixWorld.clone();
+        }
+
         // Clone the matrix to force React state update (Three.js reuses the instance)
-        onMatrixUpdateRef.current(selectedLinkRef.current.matrixWorld.clone());
+        onSelectionUpdateRef.current(
+            selectedLinkRef.current.name, 
+            selectedLinkRef.current.matrixWorld.clone(),
+            parentMatrix
+        );
       }
 
       renderer.render(scene, camera);
@@ -212,7 +225,7 @@ const Viewer: React.FC<ViewerProps> = (props) => {
 
       if (newSelection && newSelection === selectedLinkRef.current) {
         unhighlightLink();
-        onSelectionUpdateRef.current(null, null);
+        onSelectionUpdateRef.current(null, null, null);
       } else {
         unhighlightLink();
         if (newSelection) {
@@ -221,10 +234,31 @@ const Viewer: React.FC<ViewerProps> = (props) => {
               selectedLinkRef.current = newSelection;
               originalLinkMaterialRef.current = mesh.material;
               mesh.material = linkHighlightMaterialRef.current;
+
+              // Find Parent Link
+              let parentLink: URDFLink | null = null;
+              let p = newSelection.parent;
+              while(p) {
+                  if ((p as any).isURDFLink) {
+                      parentLink = p as URDFLink;
+                      break;
+                  }
+                  p = p.parent;
+              }
+              selectedLinkParentRef.current = parentLink;
+              
+              let parentMatrix: THREE.Matrix4 | null = null;
+              if (parentLink) {
+                  parentLink.updateWorldMatrix(true, false);
+                  parentMatrix = parentLink.matrixWorld.clone();
+              }
+
+              onSelectionUpdateRef.current(newSelection.name, newSelection.matrixWorld.clone(), parentMatrix);
+            } else {
+                onSelectionUpdateRef.current(null, null, null);
             }
-            onSelectionUpdateRef.current(newSelection.name, newSelection.matrixWorld);
         } else {
-            onSelectionUpdateRef.current(null, null);
+            onSelectionUpdateRef.current(null, null, null);
         }
       }
     };
@@ -250,7 +284,7 @@ const Viewer: React.FC<ViewerProps> = (props) => {
     
     unhighlightLink();
     unhighlightJoint();
-    onSelectionUpdateRef.current(null, null);
+    onSelectionUpdateRef.current(null, null, null);
 
     if (robot) {
       robot.rotation.x = -Math.PI / 2;

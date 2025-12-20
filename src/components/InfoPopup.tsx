@@ -5,8 +5,9 @@ import { URDFJoint } from 'urdf-loader';
 interface InfoPopupProps {
   name: string | null;
   matrix: THREE.Matrix4 | null;
-  joint?: URDFJoint | null; // Optional: for control mode
-  value?: number; // Controlled value for joint
+  parentMatrix?: THREE.Matrix4 | null; // New prop
+  joint?: URDFJoint | null;
+  value?: number;
   onJointChange?: (value: number) => void;
   top: number;
   left: number;
@@ -14,42 +15,33 @@ interface InfoPopupProps {
   onPositionChange: (x: number, y: number) => void;
 }
 
-const InfoPopup: React.FC<InfoPopupProps> = ({ name, matrix, joint, value, onJointChange, top, left, onClose, onPositionChange }) => {
+const InfoPopup: React.FC<InfoPopupProps> = ({ name, matrix, parentMatrix, joint, value, onJointChange, top, left, onClose, onPositionChange }) => {
   if (!name || (!matrix && !joint)) {
     return null;
   }
 
-  // Local state for position to ensure smooth dragging
+  // ... (keep existing state and effect hooks for position dragging) ...
   const [currentPos, setCurrentPos] = useState({ x: left, y: top });
   const [isDragging, setIsDragging] = useState(false);
   const offsetRef = useRef({ x: 0, y: 0 });
   const popupRef = useRef<HTMLDivElement>(null);
   
-  // Sync with props when parent updates position (e.g. new selection)
-  useEffect(() => {
-    setCurrentPos({ x: left, y: top });
-  }, [top, left]);
+  useEffect(() => { setCurrentPos({ x: left, y: top }); }, [top, left]);
   
   const handleSliderChange = (e: React.ChangeEvent<HTMLInputElement>) => {
       const val = parseFloat(e.target.value);
-      if (onJointChange) {
-          onJointChange(val);
-      }
+      if (onJointChange) onJointChange(val);
   };
 
   const handleMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
     e.stopPropagation();
     if (!popupRef.current || !popupRef.current.parentElement) return;
-    
     setIsDragging(true);
     const rect = popupRef.current.getBoundingClientRect();
     const parentRect = popupRef.current.parentElement.getBoundingClientRect();
-
     offsetRef.current = {
-      // Offset of mouse relative to the popup's top-left corner
       x: e.clientX - rect.left,
       y: e.clientY - rect.top,
-      // Store parent offset to correct calculations during move
       parentX: parentRect.left,
       parentY: parentRect.top
     } as any;
@@ -59,59 +51,112 @@ const InfoPopup: React.FC<InfoPopupProps> = ({ name, matrix, joint, value, onJoi
     const handleMouseMove = (e: MouseEvent) => {
       if (!isDragging) return;
       e.preventDefault();
-      
       const offset = offsetRef.current as any;
-      
-      // Calculate new position relative to the PARENT container
-      // Position = (Mouse Client Pos - Parent Offset) - Mouse Offset within Popup
       const newX = (e.clientX - offset.parentX) - offset.x;
       const newY = (e.clientY - offset.parentY) - offset.y;
-      
       setCurrentPos({ x: newX, y: newY });
     };
-
     const handleMouseUp = () => {
       if (isDragging) {
         setIsDragging(false);
-        // Report final position to parent to save preference
         onPositionChange(currentPos.x, currentPos.y);
       }
     };
-
     if (isDragging) {
       window.addEventListener('mousemove', handleMouseMove);
       window.addEventListener('mouseup', handleMouseUp);
     }
-
     return () => {
       window.removeEventListener('mousemove', handleMouseMove);
       window.removeEventListener('mouseup', handleMouseUp);
     };
   }, [isDragging, currentPos, onPositionChange]);
 
-  const handleStopPropagation = (e: React.MouseEvent) => {
-    e.stopPropagation();
+  const handleStopPropagation = (e: React.MouseEvent) => { e.stopPropagation(); };
+
+  // --- Logic for Matrices ---
+
+  // 1. Global (Z-up Corrected)
+  const displayMatrix = React.useMemo(() => {
+      if (!matrix) return null;
+      const correction = new THREE.Matrix4().makeRotationX(Math.PI / 2);
+      return correction.multiply(matrix.clone()); // clone to be safe
+  }, [matrix]);
+
+  // 2. Local (Relative to Parent)
+  const localMatrix = React.useMemo(() => {
+      if (!matrix || !parentMatrix) return null;
+      const invParent = parentMatrix.clone().invert();
+      return invParent.multiply(matrix.clone());
+  }, [matrix, parentMatrix]);
+
+  const renderMatrixInfo = (m: THREE.Matrix4, title: string) => {
+      const position = new THREE.Vector3();
+      const quaternion = new THREE.Quaternion();
+      const scale = new THREE.Vector3();
+      const euler = new THREE.Euler();
+      m.decompose(position, quaternion, scale);
+      euler.setFromQuaternion(quaternion, 'XYZ');
+      const toDegrees = (rad: number) => (rad * 180 / Math.PI).toFixed(3);
+
+      const labelStyle: React.CSSProperties = { color: '#888', width: '35px', display: 'inline-block', fontSize: '0.85rem' };
+      const valStyle: React.CSSProperties = { 
+          fontFamily: 'Consolas, monospace', 
+          display: 'inline-block', 
+          width: '85px', 
+          textAlign: 'right',
+          color: '#eee',
+          fontSize: '0.9rem'
+      };
+      const rowStyle: React.CSSProperties = { display: 'flex', alignItems: 'center', marginBottom: '2px' };
+      const sectionHeaderStyle: React.CSSProperties = {
+          margin: '8px 0 4px 0', 
+          fontSize: '0.7rem', 
+          color: '#aaa', 
+          textTransform: 'uppercase',
+          borderBottom: '1px solid #444',
+          paddingBottom: '2px'
+      };
+
+      return (
+        <div className="matrix-section" style={{ flex: 1, minWidth: '140px', padding: '0 5px' }}>
+            <h5 style={{ margin: '0 0 10px 0', fontSize: '0.85rem', color: '#fff', textAlign: 'center', background: '#333', padding: '3px', borderRadius: '4px' }}>
+                {title}
+            </h5>
+            
+            <div style={sectionHeaderStyle}>Position</div>
+            <div>
+                <div style={rowStyle}><span style={labelStyle}>X</span><span style={valStyle}>{position.x.toFixed(4)}</span></div>
+                <div style={rowStyle}><span style={labelStyle}>Y</span><span style={valStyle}>{position.y.toFixed(4)}</span></div>
+                <div style={rowStyle}><span style={labelStyle}>Z</span><span style={valStyle}>{position.z.toFixed(4)}</span></div>
+            </div>
+
+            <div style={sectionHeaderStyle}>Orientation (Deg)</div>
+            <div>
+                <div style={rowStyle}><span style={labelStyle}>Roll</span><span style={valStyle}>{toDegrees(euler.x)}</span></div>
+                <div style={rowStyle}><span style={labelStyle}>Pitch</span><span style={valStyle}>{toDegrees(euler.y)}</span></div>
+                <div style={rowStyle}><span style={labelStyle}>Yaw</span><span style={valStyle}>{toDegrees(euler.z)}</span></div>
+            </div>
+
+            <div style={sectionHeaderStyle}>Quaternion</div>
+            <div style={{ fontSize: '0.8rem' }}>
+                <div style={rowStyle}><span style={labelStyle}>X</span><span style={valStyle}>{quaternion.x.toFixed(4)}</span></div>
+                <div style={rowStyle}><span style={labelStyle}>Y</span><span style={valStyle}>{quaternion.y.toFixed(4)}</span></div>
+                <div style={rowStyle}><span style={labelStyle}>Z</span><span style={valStyle}>{quaternion.z.toFixed(4)}</span></div>
+                <div style={rowStyle}><span style={labelStyle}>W</span><span style={valStyle}>{quaternion.w.toFixed(4)}</span></div>
+            </div>
+        </div>
+      );
   };
 
   // Render Content Logic
   let content;
 
-  // Correct the matrix for display to match URDF Z-up coordinates
-  // The Viewer rotates the robot by -90deg on X. We rotate back by +90deg.
-  const displayMatrix = React.useMemo(() => {
-      if (!matrix) return null;
-      const correction = new THREE.Matrix4().makeRotationX(Math.PI / 2);
-      // We apply the correction to the world matrix to align it back to Z-up
-      return correction.multiply(matrix);
-  }, [matrix]);
-
   if (joint) {
-      // --- Control Mode ---
+      // ... (Joint Control Logic - kept same as before) ...
       const limitLower = Number(joint.limit.lower);
       const limitUpper = Number(joint.limit.upper);
       const isRevolute = joint.jointType === 'revolute' || joint.jointType === 'continuous';
-      
-      // Handle continuous joints or missing limits
       const min = !isNaN(limitLower) ? limitLower : -3.14;
       const max = !isNaN(limitUpper) ? limitUpper : 3.14;
       const step = isRevolute ? 0.01 : 0.001;
@@ -119,17 +164,12 @@ const InfoPopup: React.FC<InfoPopupProps> = ({ name, matrix, joint, value, onJoi
       const displayValue = value ?? 0;
       
       const parentName = (joint.parent as any)?.name || 'None';
-      
       let childName = 'None';
-      // urdf-loader strategy: Check explicit property or children array
-      if ((joint as any).child) {
-          childName = (joint as any).child.name;
-      } else {
-          // In Three.js graph, the child link is added as a child of the joint object
+      if ((joint as any).child) childName = (joint as any).child.name;
+      else {
           const childLink = joint.children.find(c => (c as any).isURDFLink);
           if (childLink) childName = childLink.name;
       }
-
       const axis = joint.axis ? `${joint.axis.x}, ${joint.axis.y}, ${joint.axis.z}` : 'N/A';
 
       content = (
@@ -163,40 +203,20 @@ const InfoPopup: React.FC<InfoPopupProps> = ({ name, matrix, joint, value, onJoi
           </div>
       );
   } else if (displayMatrix) {
-      // --- Matrix Info Mode ---
-      const position = new THREE.Vector3();
-      const quaternion = new THREE.Quaternion();
-      const scale = new THREE.Vector3();
-      const euler = new THREE.Euler();
-
-      displayMatrix.decompose(position, quaternion, scale);
-      euler.setFromQuaternion(quaternion, 'XYZ');
-      const toDegrees = (rad: number) => (rad * 180 / Math.PI).toFixed(2);
-      
       content = (
-        <div className="info-popup-content">
-            <div className="matrix-section">
-            <h5>Position (URDF Z-up):</h5>
-            <p>X: {position.x.toFixed(4)}</p>
-            <p>Y: {position.y.toFixed(4)}</p>
-            <p>Z: {position.z.toFixed(4)}</p>
-            </div>
-            <div className="matrix-section">
-            <h5>Orientation (RPY - deg):</h5>
-            <p>Roll: {toDegrees(euler.x)}°</p>
-            <p>Pitch: {toDegrees(euler.y)}°</p>
-            <p>Yaw: {toDegrees(euler.z)}°</p>
-            </div>
-            <div className="matrix-section">
-            <h5>Quaternion (X, Y, Z, W):</h5>
-            <p>X: {quaternion.x.toFixed(4)}</p>
-            <p>Y: {quaternion.y.toFixed(4)}</p>
-            <p>Z: {quaternion.z.toFixed(4)}</p>
-            <p>W: {quaternion.w.toFixed(4)}</p>
-            </div>
+        <div className="info-popup-content" style={{ display: 'flex', gap: '15px', flexDirection: 'row', padding: '5px' }}>
+            {renderMatrixInfo(displayMatrix, "Global")}
+            {localMatrix && (
+                <>
+                    <div style={{ width: '1px', background: '#444' }}></div>
+                    {renderMatrixInfo(localMatrix, "Local")}
+                </>
+            )}
         </div>
       );
   }
+
+  // ... (Return JSX) ...
 
   return (
     <div 
