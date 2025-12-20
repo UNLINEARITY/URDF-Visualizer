@@ -19,26 +19,39 @@ function App() {
       const reader = new FileReader();
       reader.onload = (e) => {
         const urdfContent = e.target?.result as string;
-        const loader = new URDFLoader(new THREE.LoadingManager());
-        loader.load(
-          // We are creating a fake URL here to satisfy the loader's requirement.
-          // The actual content is passed in the second argument.
-          'model.urdf', 
-          urdfContent,
-          (loadedRobot) => {
-            console.log("Robot loaded successfully", loadedRobot);
-            setRobot(loadedRobot);
-            setLoading(false);
-          },
-          (progress) => {
-            console.log('Loading...', progress);
-          },
-          (err) => {
-            console.error('Error loading robot:', err);
-            setError('Failed to load or parse URDF file. Check console for details.');
+        
+        const manager = new THREE.LoadingManager();
+        const loader = new URDFLoader(manager);
+
+        // This is a workaround to handle relative paths for meshes
+        // We'll use the file's name to create a fake base path
+        const workingPath = THREE.LoaderUtils.extractUrlBase(file.name);
+        loader.workingPath = workingPath;
+
+        manager.onLoad = () => {
+          console.log('All resources loaded successfully.');
+          setLoading(false);
+        };
+
+        manager.onError = (url) => {
+          console.error(`Error loading resource: ${url}`);
+          setError(`Failed to load a resource: ${url}. If loading a model with meshes, ensure all resource files (e.g., .stl, .dae) are in the same folder as the URDF file.`);
+          setLoading(false);
+        };
+
+        try {
+          const loadedRobot = loader.parse(urdfContent);
+          setRobot(loadedRobot);
+          console.log("URDF parsed successfully.");
+          // If the manager has nothing to load, onLoad won't be called, so we check here.
+          if (!manager.isLoading) {
             setLoading(false);
           }
-        );
+        } catch (err) {
+          console.error('Error parsing URDF:', err);
+          setError('Failed to parse URDF file. Check content for errors.');
+          setLoading(false);
+        }
       };
       reader.onerror = () => {
         setError('Failed to read file.');

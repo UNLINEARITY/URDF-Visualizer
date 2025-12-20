@@ -1,0 +1,61 @@
+<?xml version="1.0"?>
+<robot name="two_link_arm">
+
+  <!-- base -->
+  <link name="base_link">
+    <visual>
+      <origin xyz="0 0 0.05"/>
+      <geometry>
+        <box size="0.3 0.3 0.1"/>
+      </geometry>
+      <material name="gray">
+        <color rgba="0.6 0.6 0.6 1"/>
+      </material>
+    </visual>
+  </link>
+
+  <!-- link1 -->
+  <link name="link1">
+    <visual>
+      <origin xyz="0 0 0.2"/>
+      <geometry>
+        <box size="0.08 0.08 0.4"/>
+      </geometry>
+      <material name="blue">
+        <color rgba="0.2 0.4 0.9 1"/>
+      </material>
+    </visual>
+  </link>
+
+  <!-- joint1 -->
+  <joint name="shoulder_joint" type="revolute">
+    <parent link="base_link"/>
+    <child link="link1"/>
+    <origin xyz="0 0 0.1"/>
+    <axis xyz="0 0 1"/>
+    <limit lower="-3.14" upper="3.14" effort="1" velocity="1"/>
+  </joint>
+
+  <!-- link2 -->
+  <link name="link2">
+    <visual>
+      <origin xyz="0 0 0.2"/>
+      <geometry>
+        <box size="0.06 0.06 0.4"/>
+      </geometry>
+      <material name="green">
+        <color rgba="0.2 0.8 0.4 1"/>
+      </material>
+    </visual>
+  </link>
+
+  <!-- joint2 -->
+  <joint name="elbow_joint" type="revolute">
+    <parent link="link1"/>
+    <child link="link2"/>
+    <origin xyz="0 0 0.4"/>
+    <axis xyz="0 1 0"/>
+    <limit lower="-1.57" upper="1.57" effort="1" velocity="1"/>
+  </joint>
+
+</robot>
