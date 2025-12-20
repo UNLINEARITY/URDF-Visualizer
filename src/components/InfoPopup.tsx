@@ -76,11 +76,10 @@ const InfoPopup: React.FC<InfoPopupProps> = ({ name, matrix, parentMatrix, joint
 
   // --- Logic for Matrices ---
 
-  // 1. Global (Z-up Corrected)
+  // 1. Global (Natively Z-up now)
   const displayMatrix = React.useMemo(() => {
       if (!matrix) return null;
-      const correction = new THREE.Matrix4().makeRotationX(Math.PI / 2);
-      return correction.multiply(matrix.clone()); // clone to be safe
+      return matrix.clone(); 
   }, [matrix]);
 
   // 2. Local (Relative to Parent)
@@ -96,7 +95,10 @@ const InfoPopup: React.FC<InfoPopupProps> = ({ name, matrix, parentMatrix, joint
       const scale = new THREE.Vector3();
       const euler = new THREE.Euler();
       m.decompose(position, quaternion, scale);
-      euler.setFromQuaternion(quaternion, 'XYZ');
+      
+      // 'ZYX' order is standard for RPY (Roll=X, Pitch=Y, Yaw=Z) in many robotics applications
+      // because it represents intrinsic rotations applied in that order.
+      euler.setFromQuaternion(quaternion, 'ZYX');
       const toDegrees = (rad: number) => (rad * 180 / Math.PI).toFixed(3);
 
       const labelStyle: React.CSSProperties = { color: '#888', width: '35px', display: 'inline-block', fontSize: '0.85rem' };

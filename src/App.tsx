@@ -179,9 +179,9 @@ function App() {
       const manager = new THREE.LoadingManager();
       
       // Determine the directory of the current model file
-      // If currentFilePath is "go2/urdf/go2.urdf", modelDir is "go2/urdf"
       const pathParts = currentFilePath.split('/');
       const modelDir = pathParts.slice(0, -1).join('/');
+      const modelPackageRoot = pathParts.length > 1 ? pathParts[0] : '';
 
       // Setup URL Modifier to handle package:// and URDF-relative paths
       manager.setURLModifier((url) => {
@@ -190,11 +190,15 @@ function App() {
               return url.replace('package://', '/api/assets/');
           }
           
-          // 2. Handle relative paths (e.g. "../dae/base.dae")
+          // 2. Handle relative paths
           if (!url.startsWith('/') && !url.startsWith('http')) {
-              // Join the URDF directory with the relative mesh path
-              // The browser/server will naturally resolve "/api/assets/go2/urdf/../dae/base.dae" 
-              // into "/api/assets/go2/dae/base.dae"
+              // Heuristic: If the URDF is in a 'urdf' folder but meshes are one level up
+              // and the path doesn't already have '../'
+              if (modelDir.endsWith('/urdf') && !url.startsWith('..')) {
+                  // Try to look in the package root instead of the urdf folder
+                  return `/api/assets/${modelPackageRoot}/${url}`;
+              }
+
               const fullAssetPath = modelDir ? `${modelDir}/${url}` : url;
               return `/api/assets/${fullAssetPath}`;
           }
@@ -204,29 +208,49 @@ function App() {
 
       const loader = new URDFLoader(manager);
       
-      // Explicitly define how to load meshes
+      // Explicitly define how to load meshes with safety checks
       const stlLoader = new STLLoader(manager);
       const daeLoader = new ColladaLoader(manager);
       const objLoader = new OBJLoader(manager);
 
       loader.meshLoader = (path, ext, done) => {
-          if (ext.toLowerCase() === 'stl') {
-              stlLoader.load(path, geom => {
-                  const mesh = new THREE.Mesh(geom, new THREE.MeshStandardMaterial());
-                  done(mesh);
-              });
-          } else if (ext.toLowerCase() === 'dae') {
-              daeLoader.load(path, collada => {
-                  done(collada.scene);
-              });
-          } else if (ext.toLowerCase() === 'obj') {
-              objLoader.load(path, obj => {
-                  done(obj);
-              });
-          } else {
-              console.warn(`No loader for extension: ${ext}`);
+          // Check if path looks like an error page (optional but good for debugging)
+          fetch(path, { method: 'HEAD' }).then(res => {
+              if (!res.ok) {
+                  console.error(`Mesh file not found (404/500): ${path}`);
+                  done(new THREE.Group());
+                  return;
+              }
+
+              if (ext.toLowerCase() === 'stl') {
+                  stlLoader.load(path, geom => {
+                      const mesh = new THREE.Mesh(geom, new THREE.MeshStandardMaterial());
+                      done(mesh);
+                  }, undefined, err => {
+                      console.error("STL Load Error:", err);
+                      done(new THREE.Group());
+                  });
+              } else if (ext.toLowerCase() === 'dae') {
+                  daeLoader.load(path, collada => {
+                      done(collada.scene);
+                  }, undefined, err => {
+                      console.error("DAE Load Error:", err);
+                      done(new THREE.Group());
+                  });
+              } else if (ext.toLowerCase() === 'obj') {
+                  objLoader.load(path, obj => {
+                      done(obj);
+                  }, undefined, err => {
+                      console.error("OBJ Load Error:", err);
+                      done(new THREE.Group());
+                  });
+              } else {
+                  done(new THREE.Group());
+              }
+          }).catch(e => {
+              console.error("Network error checking mesh:", e);
               done(new THREE.Group());
-          }
+          });
       };
 
       loader.loadCollision = false;
