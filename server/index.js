@@ -11,21 +11,42 @@ app.use(cors({ origin: 'http://localhost:5173' }));
 // Recursive file search
 function getFiles(dir, allFiles = []) {
   try {
+    const publicPath = path.resolve(__dirname, '..', 'public');
     if (!fs.existsSync(dir)) return allFiles;
     const files = fs.readdirSync(dir);
+    
     files.forEach(file => {
-      const name = path.join(dir, file);
-      const stat = fs.statSync(name);
-      if (stat.isDirectory()) {
-        getFiles(name, allFiles);
-      } else {
-        if (file.endsWith('.urdf') || file.endsWith('.xacro')) {
-          const publicPath = path.resolve(__dirname, '..', 'public');
-          allFiles.push(path.relative(publicPath, name).replace(/\\/g, '/'));
+      try {
+        const name = path.join(dir, file);
+        const stat = fs.statSync(name);
+        if (stat.isDirectory()) {
+          getFiles(name, allFiles);
+        } else {
+          const relativePath = path.relative(publicPath, name).replace(/\\/g, '/');
+          const isSubDir = relativePath.includes('/');
+
+          if (file.endsWith('.urdf')) {
+            // Always include URDF files
+            allFiles.push(relativePath);
+          } else if (file.endsWith('.xacro')) {
+            if (!isSubDir) {
+              // Include standalone Xacro files in the root directory
+              allFiles.push(relativePath);
+            } else {
+              // In subdirectories, only include Xacro files that have 'main' in their name
+              if (file.toLowerCase().includes('main')) {
+                allFiles.push(relativePath);
+              }
+            }
+          }
         }
+      } catch (e) {
+        console.error(`Error processing file ${file}:`, e.message);
       }
     });
-  } catch (err) {}
+  } catch (err) {
+    console.error(`Error reading directory ${dir}:`, err.message);
+  }
   return allFiles;
 }
 
