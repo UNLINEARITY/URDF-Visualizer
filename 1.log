@@ -1,55 +1,15 @@
 react-dom.development.js:29895 Download the React DevTools for a better development experience: https://reactjs.org/link/react-devtools
-App.tsx:143   GET http://localhost:5173/api/samples net::ERR_ABORTED 500 (Internal Server Error)
-(匿名) @ App.tsx:143
+App.tsx:183  Uncaught ReferenceError: filename is not defined
+    at App.tsx:183:21
+(匿名) @ App.tsx:183
+setTimeout
+(匿名) @ App.tsx:177
 commitHookEffectListMount @ react-dom.development.js:23189
 commitPassiveMountOnFiber @ react-dom.development.js:24965
 commitPassiveMountEffects_complete @ react-dom.development.js:24930
 commitPassiveMountEffects_begin @ react-dom.development.js:24917
 commitPassiveMountEffects @ react-dom.development.js:24905
 flushPassiveEffectsImpl @ react-dom.development.js:27078
-flushPassiveEffects @ react-dom.development.js:27023
-(匿名) @ react-dom.development.js:26808
-workLoop @ scheduler.development.js:266
-flushWork @ scheduler.development.js:239
-performWorkUntilDeadline @ scheduler.development.js:533
-App.tsx:154  Failed to fetch sample files: Error: Network response was not ok
-    at App.tsx:146:17
-(匿名) @ App.tsx:154
-Promise.catch
-(匿名) @ App.tsx:153
-commitHookEffectListMount @ react-dom.development.js:23189
-commitPassiveMountOnFiber @ react-dom.development.js:24965
-commitPassiveMountEffects_complete @ react-dom.development.js:24930
-commitPassiveMountEffects_begin @ react-dom.development.js:24917
-commitPassiveMountEffects @ react-dom.development.js:24905
-flushPassiveEffectsImpl @ react-dom.development.js:27078
-flushPassiveEffects @ react-dom.development.js:27023
-(匿名) @ react-dom.development.js:26808
-workLoop @ scheduler.development.js:266
-flushWork @ scheduler.development.js:239
-performWorkUntilDeadline @ scheduler.development.js:533
-App.tsx:143   GET http://localhost:5173/api/samples net::ERR_ABORTED 500 (Internal Server Error)
-(匿名) @ App.tsx:143
-commitHookEffectListMount @ react-dom.development.js:23189
-invokePassiveEffectMountInDEV @ react-dom.development.js:25193
-invokeEffectsInDev @ react-dom.development.js:27390
-commitDoubleInvokeEffectsInDEV @ react-dom.development.js:27369
-flushPassiveEffectsImpl @ react-dom.development.js:27095
-flushPassiveEffects @ react-dom.development.js:27023
-(匿名) @ react-dom.development.js:26808
-workLoop @ scheduler.development.js:266
-flushWork @ scheduler.development.js:239
-performWorkUntilDeadline @ scheduler.development.js:533
-App.tsx:154  Failed to fetch sample files: Error: Network response was not ok
-    at App.tsx:146:17
-(匿名) @ App.tsx:154
-Promise.catch
-(匿名) @ App.tsx:153
-commitHookEffectListMount @ react-dom.development.js:23189
-invokePassiveEffectMountInDEV @ react-dom.development.js:25193
-invokeEffectsInDev @ react-dom.development.js:27390
-commitDoubleInvokeEffectsInDEV @ react-dom.development.js:27369
-flushPassiveEffectsImpl @ react-dom.development.js:27095
 flushPassiveEffects @ react-dom.development.js:27023
 (匿名) @ react-dom.development.js:26808
 workLoop @ scheduler.development.js:266
