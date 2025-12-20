@@ -353,6 +353,7 @@ function App() {
         <Viewer
           robot={robot}
           isAltPressed={isAltPressed}
+          selectedJoint={jointSelection.joint}
           showWorldAxes={showWorldAxes}
           showGrid={showGrid}
           showLinkAxes={showLinkAxes}
