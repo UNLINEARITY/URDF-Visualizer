@@ -374,7 +374,6 @@ function App() {
           const file = findFileInMap(resolvedPath, filesMap);
           
           if (file) {
-              console.log(`[Flatten] Resolved ${path} -> ${file.name}`);
               let fileText = await new Promise<string>((resolve) => {
                   const reader = new FileReader();
                   reader.onload = () => resolve(reader.result as string);
@@ -395,12 +394,6 @@ function App() {
               const before = newContent.substring(0, matches[i].index);
               const after = newContent.substring(matches[i].index + full.length);
               newContent = before + flattenedInclude + after;
-          } else {
-              console.warn(`[Flatten] Could not find file for include: ${path} (resolved: ${resolvedPath})`);
-              // Leave it? Or comment it out? 
-              // If we leave it, the parser will try and fail.
-              // Let's leave it and let the parser error out if it wants, or maybe it works if it's remote?
-              // But we are in "isLocal" mode.
           }
       }
       
@@ -416,7 +409,6 @@ function App() {
         if (isLocal) {
             // Manually flatten includes to bypass parser loader issues
             const flattenedContent = await flattenXacro(content, localFilesRef.current);
-            console.log("Nxacro Flattening Complete. Size:", flattenedContent.length);
             
             const parser = new XacroParser();
             const xml = await parser.parse(flattenedContent);
@@ -530,8 +522,6 @@ function App() {
           if (urdfFiles.length === 0) {
               throw new Error("No .urdf or .xacro file found in the dropped folder.");
           }
-          
-          console.log("Found URDF/Xacro files:", urdfFiles.map(f => f.name));
 
           // Heuristic to find the best entry point
           // 1. Look for 'main' in the filename (user's specific request)
@@ -551,8 +541,6 @@ function App() {
               // But actually we have access to the map. Let's just pick the first one for now as fallback.
               entryFile = urdfFiles[0];
           }
-          
-          console.log("Selected Entry File:", entryFile?.name);
           
           if (entryFile) {
              const reader = new FileReader();
