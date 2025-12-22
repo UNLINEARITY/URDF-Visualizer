@@ -36,3 +36,4 @@ Thumbs.db
 /coverage
 .nycrc
 .nyc_output
+public/files.json

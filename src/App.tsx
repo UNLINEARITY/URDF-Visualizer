@@ -42,6 +42,7 @@ function App() {
   
   const [isCtrlPressed, setIsCtrlPressed] = useState(false);
   const [sampleFiles, setSampleFiles] = useState<string[]>([]);
+  const [isStaticMode, setIsStaticMode] = useState(false);
   
   // -- GLOBAL JOINT STATE --
   const [jointValues, setJointValues] = useState<Record<string, number>>({});
@@ -142,21 +143,39 @@ function App() {
   const closeJointPopup = () => setJointSelection(prev => ({ ...prev, visible: false }));
 
 
-  // Effect to fetch the list of sample files from the backend
+  // Effect to fetch the list of sample files from the backend OR static manifest
   useEffect(() => {
-    fetch('/api/samples')
-      .then(res => {
-        if (!res.ok) {
-          throw new Error('Network response was not ok');
-        }
-        return res.json();
-      })
-      .then(files => {
-        setSampleFiles(files);
-      })
-      .catch(err => {
-        console.error("Failed to fetch sample files:", err);
-      });
+    // Try static first
+    fetch('files.json')
+        .then(res => {
+            if (res.ok && res.headers.get('content-type')?.includes('json')) {
+                return res.json().then(files => {
+                    console.log("Loaded static manifest", files);
+                    setSampleFiles(files);
+                    setIsStaticMode(true);
+                });
+            } else {
+                throw new Error("No static manifest");
+            }
+        })
+        .catch(() => {
+            // Fallback to API
+            console.log("Static manifest not found, trying API...");
+            fetch('/api/samples')
+              .then(res => {
+                if (!res.ok) {
+                  throw new Error('Network response was not ok');
+                }
+                return res.json();
+              })
+              .then(files => {
+                setSampleFiles(files);
+                setIsStaticMode(false);
+              })
+              .catch(err => {
+                console.error("Failed to fetch sample files:", err);
+              });
+        });
   }, []);
 
   // Cleanup Blob URLs on unmount or new load
@@ -190,6 +209,7 @@ function App() {
       const pathParts = currentFilePath.split('/');
       const modelDir = pathParts.slice(0, -1).join('/');
       const modelPackageRoot = pathParts.length > 1 ? pathParts[0] : '';
+      const baseUrl = import.meta.env.BASE_URL.endsWith('/') ? import.meta.env.BASE_URL : import.meta.env.BASE_URL + '/';
 
       // Setup URL Modifier to handle package:// and URDF-relative paths
       manager.setURLModifier((url) => {
@@ -205,6 +225,9 @@ function App() {
 
           // 1. Handle ROS package:// protocol
           if (url.startsWith('package://')) {
+              if (isStaticMode) {
+                   return baseUrl + url.replace('package://', '');
+              }
               return url.replace('package://', '/api/assets/');
           }
           
@@ -214,10 +237,16 @@ function App() {
               // and the path doesn't already have '../'
               if (modelDir.endsWith('/urdf') && !url.startsWith('..')) {
                   // Try to look in the package root instead of the urdf folder
+                  if (isStaticMode) {
+                      return `${baseUrl}${modelPackageRoot}/${url}`;
+                  }
                   return `/api/assets/${modelPackageRoot}/${url}`;
               }
 
               const fullAssetPath = modelDir ? `${modelDir}/${url}` : url;
+              if (isStaticMode) {
+                  return `${baseUrl}${fullAssetPath}`;
+              }
               return `/api/assets/${fullAssetPath}`;
           }
           
@@ -306,7 +335,7 @@ function App() {
       }
     }, 10);
 
-  }, [urdfContent]);
+  }, [urdfContent, isStaticMode]); // Added isStaticMode dependency
 
 
   // Keyboard shortcuts effect
@@ -457,6 +486,50 @@ function App() {
     }
   }, []);
 
+  const handleFolderChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
+      const files = event.target.files;
+      if (!files || files.length === 0) return;
+
+      setLoading(true);
+      setError(null);
+
+      // Construct map from FileList
+      const filesMap = new Map<string, File>();
+      Array.from(files).forEach(file => {
+          // webkitRelativePath is like "folder/sub/file.ext"
+          filesMap.set(file.webkitRelativePath, file);
+      });
+      
+      localFilesRef.current = filesMap;
+      
+      const urdfFiles: File[] = [];
+      filesMap.forEach((file) => {
+          if (file.name.endsWith('.urdf') || file.name.endsWith('.xacro')) {
+              urdfFiles.push(file);
+          }
+      });
+
+      if (urdfFiles.length === 0) {
+          setError("No .urdf or .xacro file found in the selected folder.");
+          setLoading(false);
+          return;
+      }
+
+      let entryFile = urdfFiles.find(f => f.name.toLowerCase().includes('main'));
+      if (!entryFile) entryFile = urdfFiles.find(f => f.name.toLowerCase().includes('robot'));
+      if (!entryFile) entryFile = urdfFiles[0];
+
+      if (entryFile) {
+          const reader = new FileReader();
+          reader.onload = (ev) => {
+              const content = ev.target?.result as string;
+              setCurrentFilePath(entryFile!.name);
+              processAndSetContent(entryFile!.name, content, true);
+          };
+          reader.readAsText(entryFile);
+      }
+  }, []);
+
   const handleSampleChange = useCallback((event: React.ChangeEvent<HTMLSelectElement>) => {
     const filename = event.target.value;
     if (!filename) {
@@ -466,6 +539,23 @@ function App() {
     
     // Clear local map when switching to sample
     localFilesRef.current.clear();
+
+    // STATIC MODE: No need to parse Xacro dynamically, just fetch the file
+    // which is likely a .generated.urdf now (pointed to by files.json)
+    if (isStaticMode) {
+        setLoading(true);
+        fetch(filename)
+            .then(res => res.text())
+            .then(content => {
+                setCurrentFilePath(filename);
+                setUrdfContent(content);
+            })
+            .catch(err => {
+                 setError(`Failed to fetch ${filename}`);
+                 setLoading(false);
+            });
+        return;
+    }
 
     setLoading(true);
     fetch(filename)
@@ -484,7 +574,7 @@ function App() {
         setError(`Failed to fetch ${filename}.`);
         setLoading(false);
       });
-  }, []);
+  }, [isStaticMode]);
 
   // --- Drag & Drop Handlers ---
   const handleDragOver = useCallback((e: React.DragEvent) => {
@@ -578,6 +668,14 @@ function App() {
             {sampleFiles.map(f => <option key={f} value={f}>{f}</option>)}
         </select>
         <input type="file" accept=".urdf,.xacro" onChange={handleFileChange} className="file-input" />
+        <input 
+            type="file" 
+            {...{ webkitdirectory: "", directory: "" } as any} 
+            onChange={handleFolderChange} 
+            className="file-input" 
+            style={{ marginTop: '5px' }} 
+            title="Select a folder containing URDF/Xacro and meshes"
+        />
         <hr />
         <DisplayOptions
             showWorldAxes={showWorldAxes} setShowWorldAxes={setShowWorldAxes}
