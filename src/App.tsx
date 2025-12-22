@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import URDFLoader, { URDFRobot, URDFJoint } from 'urdf-loader';
 import { XacroParser } from 'xacro-parser';
 import * as THREE from 'three';
@@ -9,6 +9,7 @@ import Viewer from './components/Viewer';
 import JointController from './components/JointController';
 import DisplayOptions from './components/DisplayOptions';
 import InfoPopup from './components/InfoPopup';
+import { getAllFiles, findFileInMap } from './utils/fileUtils';
 
 interface LinkSelection {
   name: string | null;
@@ -30,6 +31,7 @@ function App() {
   const [currentFilePath, setCurrentFilePath] = useState<string>('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isDragActive, setIsDragActive] = useState(false);
 
   // Display options state
   const [showWorldAxes, setShowWorldAxes] = useState(true);
@@ -61,6 +63,11 @@ function App() {
 
   const lastLinkPosRef = React.useRef<{x: number, y: number} | null>(null);
   const lastJointPosRef = React.useRef<{x: number, y: number} | null>(null);
+  
+  // Store dropped files mapping (path -> File)
+  const localFilesRef = useRef<Map<string, File>>(new Map());
+  // Store blob URLs to revoke them later
+  const createdBlobUrls = useRef<string[]>([]);
 
   // Initialize joint values when robot loads
   useEffect(() => {
@@ -81,25 +88,18 @@ function App() {
           setLinkSelection(prev => ({...prev, visible: false, name: null, matrix: null, parentMatrix: null}));
           return;
       }
-      // If we are just updating the matrix of the SAME link, preserve position
-      // If it's a NEW link, use lastLinkPosRef or default.
-      // Actually, since this is called every frame, we should just trust lastLinkPosRef 
-      // or the current state position if we wanted to be super precise, but ref is fine.
       const position = lastLinkPosRef.current || {
           x: window.innerWidth / 2 - 320, 
           y: window.innerHeight / 2 - 200,
       };
       
       setLinkSelection(prev => {
-          // Optimization: check if matrix actually changed significantly? 
-          // React state update is cheap if reference is same, but here we clone matrix every frame.
-          // It's okay for now.
           return {
             name: name,
             matrix: matrix,
             parentMatrix: parentMatrix,
             visible: true,
-            position: prev.visible ? prev.position : position, // Keep current pos if visible (dragging), else jump to default/mem
+            position: prev.visible ? prev.position : position,
           };
       });
   }, []);
@@ -159,6 +159,14 @@ function App() {
       });
   }, []);
 
+  // Cleanup Blob URLs on unmount or new load
+  useEffect(() => {
+      return () => {
+          createdBlobUrls.current.forEach(url => URL.revokeObjectURL(url));
+          createdBlobUrls.current = [];
+      };
+  }, [urdfContent]);
+
   // Effect to parse the robot model whenever the content changes
   useEffect(() => {
     if (!urdfContent) {
@@ -185,13 +193,23 @@ function App() {
 
       // Setup URL Modifier to handle package:// and URDF-relative paths
       manager.setURLModifier((url) => {
+          // 0. Check Local Files (Drag & Drop)
+          if (localFilesRef.current.size > 0) {
+              const file = findFileInMap(url, localFilesRef.current);
+              if (file) {
+                  const blobUrl = URL.createObjectURL(file);
+                  createdBlobUrls.current.push(blobUrl);
+                  return blobUrl;
+              }
+          }
+
           // 1. Handle ROS package:// protocol
           if (url.startsWith('package://')) {
               return url.replace('package://', '/api/assets/');
           }
           
           // 2. Handle relative paths
-          if (!url.startsWith('/') && !url.startsWith('http')) {
+          if (!url.startsWith('/') && !url.startsWith('http') && !url.startsWith('blob:')) {
               // Heuristic: If the URDF is in a 'urdf' folder but meshes are one level up
               // and the path doesn't already have '../'
               if (modelDir.endsWith('/urdf') && !url.startsWith('..')) {
@@ -214,14 +232,14 @@ function App() {
       const objLoader = new OBJLoader(manager);
 
       loader.meshLoader = (path, ext, done) => {
-          // Check if path looks like an error page (optional but good for debugging)
-          fetch(path, { method: 'HEAD' }).then(res => {
-              if (!res.ok) {
-                  console.error(`Mesh file not found (404/500): ${path}`);
-                  done(new THREE.Group());
-                  return;
-              }
+          // Standard fetching for HTTP/Blob URLs
+          // We can't easily use fetch HEAD on blob URLs or mixed content easily without potential CORS or method issues,
+          // but Three.js loaders handle basic fetching. 
+          // However, for our backend '404 HTML' protection, we only check http paths.
+          
+          const isRemote = path.startsWith('http') || path.startsWith('/');
 
+          const loadMesh = () => {
               if (ext.toLowerCase() === 'stl') {
                   stlLoader.load(path, geom => {
                       const mesh = new THREE.Mesh(geom, new THREE.MeshStandardMaterial());
@@ -247,10 +265,24 @@ function App() {
               } else {
                   done(new THREE.Group());
               }
-          }).catch(e => {
-              console.error("Network error checking mesh:", e);
-              done(new THREE.Group());
-          });
+          };
+
+          if (isRemote) {
+               fetch(path, { method: 'HEAD' }).then(res => {
+                  if (!res.ok) {
+                      console.error(`Mesh file not found (404/500): ${path}`);
+                      done(new THREE.Group());
+                      return;
+                  }
+                  loadMesh();
+               }).catch(e => {
+                   console.error("Network error checking mesh:", e);
+                   done(new THREE.Group());
+               });
+          } else {
+              // Blob URL or other, just load
+              loadMesh();
+          }
       };
 
       loader.loadCollision = false;
@@ -258,7 +290,6 @@ function App() {
       manager.onLoad = () => setLoading(false);
       manager.onError = (url) => {
         console.error(`Failed to load resource: ${url}`);
-        // Don't set error state here to avoid interrupting the whole robot load
       };
 
       try {
@@ -313,20 +344,33 @@ function App() {
     };
   }, []);
 
-  const processAndSetContent = async (filename: string, content: string) => {
+  const processAndSetContent = async (filename: string, content: string, isLocal = false) => {
     if (filename.toLowerCase().endsWith('.xacro')) {
       setLoading(true);
       try {
-        // 1. Get pre-assembled Xacro from backend (includes are already merged)
-        const response = await fetch(`/api/xacro-to-urdf?file=${encodeURIComponent(filename)}`);
-        if (!response.ok) throw new Error(await response.text());
-        const assembledXacro = await response.text();
-
-        // 2. Parse macros in the browser
-        const parser = new XacroParser();
-        const xml = await parser.parse(assembledXacro);
-        const serializer = new XMLSerializer();
-        const urdfString = serializer.serializeToString(xml);
+        let urdfString = "";
+        
+        if (isLocal) {
+            // Client-side simple parsing for local Xacro
+            // WARNING: This does not support complex includes or $(find) unless we hook into the parser more deeply.
+            // For now, we do a best-effort parse of the main file.
+            const parser = new XacroParser();
+            // TODO: If we want to support local includes, we need to provide a loader to XacroParser
+            // parser.loader = ...
+            const xml = await parser.parse(content);
+            const serializer = new XMLSerializer();
+            urdfString = serializer.serializeToString(xml);
+        } else {
+            // Server-side parsing (supports includes via backend)
+            const response = await fetch(`/api/xacro-to-urdf?file=${encodeURIComponent(filename)}`);
+            if (!response.ok) throw new Error(await response.text());
+            const assembledXacro = await response.text();
+            
+            const parser = new XacroParser();
+            const xml = await parser.parse(assembledXacro);
+            const serializer = new XMLSerializer();
+            urdfString = serializer.serializeToString(xml);
+        }
         
         setUrdfContent(urdfString);
       } catch (err) {
@@ -342,11 +386,14 @@ function App() {
   const handleFileChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
+      // Clear local map when using file input (assumed single file)
+      localFilesRef.current.clear();
+      
       const reader = new FileReader();
       reader.onload = (e) => {
         const content = e.target?.result as string;
         setCurrentFilePath(file.name);
-        processAndSetContent(file.name, content);
+        processAndSetContent(file.name, content, true);
       };
       reader.onerror = () => {
         setError('Failed to read file.');
@@ -361,6 +408,9 @@ function App() {
       setUrdfContent(null);
       return;
     };
+    
+    // Clear local map when switching to sample
+    localFilesRef.current.clear();
 
     setLoading(true);
     fetch(filename)
@@ -372,7 +422,7 @@ function App() {
       })
       .then(content => {
         setCurrentFilePath(filename);
-        processAndSetContent(filename, content);
+        processAndSetContent(filename, content, false);
       })
       .catch(err => {
         console.error(`Failed to fetch ${filename}:`, err);
@@ -381,13 +431,82 @@ function App() {
       });
   }, []);
 
+  // --- Drag & Drop Handlers ---
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+      e.preventDefault();
+      setIsDragActive(true);
+  }, []);
+
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+      e.preventDefault();
+      setIsDragActive(false);
+  }, []);
+
+  const handleDrop = useCallback(async (e: React.DragEvent) => {
+      e.preventDefault();
+      setIsDragActive(false);
+      
+      if (!e.dataTransfer.items) return;
+
+      setLoading(true);
+      setError(null);
+
+      try {
+          const filesMap = await getAllFiles(e.dataTransfer.items);
+          localFilesRef.current = filesMap;
+          
+          // Find entry file (.urdf or .xacro)
+          // Prioritize files with "main" in name if multiple exist, or just take first
+          let entryFile: File | undefined;
+          const urdfFiles: File[] = [];
+          
+          filesMap.forEach((file, path) => {
+              if (file.name.endsWith('.urdf') || file.name.endsWith('.xacro')) {
+                  urdfFiles.push(file);
+              }
+          });
+
+          if (urdfFiles.length === 0) {
+              throw new Error("No .urdf or .xacro file found in the dropped folder.");
+          }
+
+          // Simple heuristic: prefer 'main' or shortest name? 
+          // For now, if one of them is named 'main.xacro' or 'robot.urdf', maybe prioritize?
+          // Let's just take the first one found or maybe the one with the shortest path depth?
+          entryFile = urdfFiles[0]; // Simplest
+          
+          if (entryFile) {
+             const reader = new FileReader();
+             reader.onload = (ev) => {
+                 const content = ev.target?.result as string;
+                 setCurrentFilePath(entryFile!.name); // Or full path? URDFLoader doesn't use this for parsing, only my logic
+                 processAndSetContent(entryFile!.name, content, true);
+             };
+             reader.readAsText(entryFile);
+          }
+      } catch (err) {
+          console.error("Drop error:", err);
+          setError(err instanceof Error ? err.message : "Failed to process dropped files");
+          setLoading(false);
+      }
+  }, []);
 
   return (
-    <div className="app-container">
+    <div 
+        className="app-container"
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onDrop={handleDrop}
+    >
+      {isDragActive && (
+          <div className="drag-overlay">
+              <h3>Drop URDF/Xacro Folder Here</h3>
+          </div>
+      )}
       <div className="ui-container">
         <h2>URDF Visualizer</h2>
-        <p>Load a sample or upload a file.</p>
-        <select onChange={handleSampleChange} defaultValue="" className="file-input">
+        <p>Load a sample or drag & drop a folder.</p>
+        <select onChange={handleSampleChange} value={sampleFiles.includes(currentFilePath) ? currentFilePath : ""} className="file-input">
             <option value="">-- Select a Sample --</option>
             {sampleFiles.map(f => <option key={f} value={f}>{f}</option>)}
         </select>
