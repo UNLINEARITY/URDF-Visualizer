@@ -667,14 +667,27 @@ function App() {
             <option value="">-- Select a Sample --</option>
             {sampleFiles.map(f => <option key={f} value={f}>{f}</option>)}
         </select>
-        <input type="file" accept=".urdf,.xacro" onChange={handleFileChange} className="file-input" />
+        
+        <label htmlFor="file-upload" className="custom-file-upload btn-file">
+            <i>📄</i> Select URDF/Xacro File
+        </label>
         <input 
+            id="file-upload"
+            type="file" 
+            accept=".urdf,.xacro" 
+            onChange={handleFileChange} 
+            className="file-input-hidden" 
+        />
+
+        <label htmlFor="folder-upload" className="custom-file-upload btn-folder">
+            <i>📁</i> Select Project Folder
+        </label>
+        <input 
+            id="folder-upload"
             type="file" 
             {...{ webkitdirectory: "", directory: "" } as any} 
             onChange={handleFolderChange} 
-            className="file-input" 
-            style={{ marginTop: '5px' }} 
-            title="Select a folder containing URDF/Xacro and meshes"
+            className="file-input-hidden" 
         />
         <hr />
         <DisplayOptions

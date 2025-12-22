@@ -53,7 +53,45 @@ canvas {
 
 .file-input {
     display: block;
-    margin-bottom: 2rem;
+    margin-bottom: 0.8rem;
+    width: 100%;
+}
+
+.file-input-hidden {
+    display: none;
+}
+
+.custom-file-upload {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 10px 15px;
+    cursor: pointer;
+    background-color: #333;
+    border: 1px solid #444;
+    border-radius: 4px;
+    color: #fff;
+    font-size: 0.9rem;
+    transition: background-color 0.2s, border-color 0.2s;
+    margin-bottom: 0.8rem;
+}
+
+.custom-file-upload:hover {
+    background-color: #444;
+    border-color: #666;
+}
+
+.custom-file-upload i {
+    margin-right: 8px;
+    font-style: normal;
+}
+
+.btn-file {
+    border-left: 4px solid #2196f3; /* Blue for file */
+}
+
+.btn-folder {
+    border-left: 4px solid #ff9800; /* Orange for folder */
 }
 
 .controls-container h3 {
