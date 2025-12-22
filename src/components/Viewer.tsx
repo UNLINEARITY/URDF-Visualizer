@@ -44,13 +44,22 @@ const Viewer: React.FC<ViewerProps> = (props) => {
 
   // --- DRAGGING STATE ---
   const dragInfoRef = useRef<{
+      mode: 'rotational_plane' | 'projection';
       joint: URDFJoint;
       startValue: number;
-      startMouseX: number;
-      startMouseY: number;
       draggedMesh: THREE.Mesh | null;
       originalMaterial: THREE.Material | THREE.Material[] | null;
-      worldClickPoint: THREE.Vector3; // The exact point captured on mousedown
+      
+      // Data for 'rotational_plane' mode
+      plane?: THREE.Plane;
+      jointAxis?: THREE.Vector3;
+      jointWorldPos?: THREE.Vector3;
+      startVector?: THREE.Vector3; // Vector from Center to StartClick
+
+      // Data for 'projection' mode (fallback & prismatic)
+      startMouseX?: number;
+      startMouseY?: number;
+      worldClickPoint?: THREE.Vector3;
   } | null>(null);
 
   // Refs for selection and highlighting (JOINT)
@@ -232,10 +241,10 @@ const Viewer: React.FC<ViewerProps> = (props) => {
         if (!mountRef.current || !camera || !robotRef.current) return;
 
         const rect = mountRef.current.getBoundingClientRect();
-        const x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
-        const y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+        const ndcX = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+        const ndcY = -((event.clientY - rect.top) / rect.height) * 2 + 1;
         
-        raycaster.setFromCamera({ x, y }, camera);
+        raycaster.setFromCamera({ x: ndcX, y: ndcY }, camera);
         const intersects = raycaster.intersectObject(robotRef.current, true);
 
         // Find the link
@@ -267,14 +276,56 @@ const Viewer: React.FC<ViewerProps> = (props) => {
                     mesh.material = linkHighlightMaterialRef.current;
                 }
 
+                // Geometric Calculation for Drag
+                const jointWorldPos = new THREE.Vector3().setFromMatrixPosition(joint.matrixWorld);
+                const jointAxisWorld = new THREE.Vector3().copy(joint.axis || new THREE.Vector3(0, 0, 1))
+                    .transformDirection(joint.matrixWorld).normalize();
+
+                let mode: 'rotational_plane' | 'projection' = 'projection';
+                let plane: THREE.Plane | undefined;
+                let startVector: THREE.Vector3 | undefined;
+
+                // Determine best interaction mode
+                if (joint.jointType === 'revolute' || joint.jointType === 'continuous') {
+                    // Check view angle relative to rotation axis
+                    const viewDir = new THREE.Vector3().subVectors(camera.position, jointWorldPos).normalize();
+                    const alignment = Math.abs(viewDir.dot(jointAxisWorld));
+                    
+                    if (alignment > 0.15) { 
+                        mode = 'rotational_plane';
+                        plane = new THREE.Plane().setFromNormalAndCoplanarPoint(jointAxisWorld, jointWorldPos);
+                        
+                        // Find intersection on this ideal plane (better than mesh hit point)
+                        const planeIntersect = new THREE.Vector3();
+                        raycaster.ray.intersectPlane(plane, planeIntersect);
+                        
+                        if (planeIntersect) {
+                             startVector = new THREE.Vector3().subVectors(planeIntersect, jointWorldPos);
+                        } else {
+                            mode = 'projection';
+                        }
+                    }
+                }
+
                 dragInfoRef.current = {
+                    mode,
                     joint: joint,
                     startValue: joint.angle as number || 0,
-                    startMouseX: event.clientX,
-                    startMouseY: event.clientY,
+                    currentJointValue: joint.angle as number || 0, // Accumulator
                     draggedMesh: mesh,
                     originalMaterial: originalMaterial,
-                    worldClickPoint: intersectPoint.clone()
+                    
+                    // Projection data
+                    startMouseX: event.clientX,
+                    startMouseY: event.clientY,
+                    worldClickPoint: intersectPoint.clone(),
+
+                    // Planar data
+                    plane,
+                    jointAxis: jointAxisWorld,
+                    jointWorldPos,
+                    startVector,
+                    previousVector: startVector ? startVector.clone() : undefined // Initialize previousVector
                 };
                 
                 if (controlsRef.current) controlsRef.current.enabled = false;
@@ -284,45 +335,79 @@ const Viewer: React.FC<ViewerProps> = (props) => {
 
     const handleMouseMoveGlobal = (event: MouseEvent) => {
         if (!dragInfoRef.current || !camera || !rendererRef.current) return;
+        const { mode, joint } = dragInfoRef.current; // Use mutable ref values
 
-        const { joint, startValue, startMouseX, startMouseY, worldClickPoint } = dragInfoRef.current;
-        
-        // 1. Get raw pixel movement from the start
-        const dx = event.clientX - startMouseX;
-        const dy = event.clientY - startMouseY;
-        const mouseMovePixels = new THREE.Vector2(dx, dy);
+        let newValue = dragInfoRef.current.currentJointValue || 0;
 
-        // 2. Calculate the 3D direction the link wants to move (unit change)
-        const jointWorldPos = new THREE.Vector3().setFromMatrixPosition(joint.matrixWorld);
-        const jointAxisWorld = new THREE.Vector3().copy(joint.axis || new THREE.Vector3(0, 0, 1))
-            .transformDirection(joint.matrixWorld);
-        
-        let moveDir3D = new THREE.Vector3();
-        if (joint.jointType === 'revolute' || joint.jointType === 'continuous') {
-            const relPoint = new THREE.Vector3().subVectors(worldClickPoint, jointWorldPos);
-            // Tangent vector = axis x radius (This represents the motion for 1 radian)
-            moveDir3D.crossVectors(jointAxisWorld, relPoint); 
+        if (mode === 'rotational_plane') {
+             const { plane, jointWorldPos, jointAxis, previousVector } = dragInfoRef.current;
+             if (plane && jointWorldPos && jointAxis && previousVector) {
+                 const rect = rendererRef.current.domElement.getBoundingClientRect();
+                 const ndcX = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+                 const ndcY = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+                 
+                 raycaster.setFromCamera({ x: ndcX, y: ndcY }, camera);
+                 const currentIntersect = new THREE.Vector3();
+                 raycaster.ray.intersectPlane(plane, currentIntersect);
+
+                 if (currentIntersect) {
+                     const currentVector = new THREE.Vector3().subVectors(currentIntersect, jointWorldPos);
+                     
+                     // Calculate incremental angle from Previous to Current
+                     // delta = atan2( cross(prev, curr).dot(axis), prev.dot(curr) )
+                     // This works because |prev||curr| cancels out or scales both arguments of atan2 equally (magnitude doesn't affect atan2 angle)
+                     const cross = new THREE.Vector3().crossVectors(previousVector, currentVector);
+                     const y = cross.dot(jointAxis);
+                     const x = previousVector.dot(currentVector);
+                     
+                     const deltaAngle = Math.atan2(y, x);
+
+                     newValue = (dragInfoRef.current.currentJointValue || 0) + deltaAngle;
+                     
+                     // Update state for next frame
+                     dragInfoRef.current.currentJointValue = newValue;
+                     dragInfoRef.current.previousVector = currentVector;
+                 }
+             }
         } else {
-            // Motion for 1 meter
-            moveDir3D.copy(jointAxisWorld);
+            // --- PROJECTION MODE (Legacy/Fallback/Prismatic) ---
+            const { startMouseX, startMouseY, worldClickPoint, startValue } = dragInfoRef.current;
+            if (startMouseX === undefined || startMouseY === undefined || !worldClickPoint) return;
+
+            // 1. Get raw pixel movement
+            const dx = event.clientX - startMouseX;
+            const dy = event.clientY - startMouseY;
+            const mouseMovePixels = new THREE.Vector2(dx, dy);
+
+            // 2. Calculate motion vector direction
+            const jointWorldPos = new THREE.Vector3().setFromMatrixPosition(joint.matrixWorld);
+            const jointAxisWorld = new THREE.Vector3().copy(joint.axis || new THREE.Vector3(0, 0, 1))
+                .transformDirection(joint.matrixWorld);
+            
+            let moveDir3D = new THREE.Vector3();
+            if (joint.jointType === 'revolute' || joint.jointType === 'continuous') {
+                const relPoint = new THREE.Vector3().subVectors(worldClickPoint, jointWorldPos);
+                moveDir3D.crossVectors(jointAxisWorld, relPoint); 
+            } else {
+                moveDir3D.copy(jointAxisWorld);
+            }
+
+            // 3. Project to screen
+            const p1 = worldClickPoint.clone().project(camera);
+            const p2 = worldClickPoint.clone().add(moveDir3D).project(camera);
+            
+            const rect = rendererRef.current.domElement.getBoundingClientRect();
+            const screenMotionVec = new THREE.Vector2(
+                (p2.x - p1.x) * rect.width / 2,
+                -(p2.y - p1.y) * rect.height / 2
+            );
+
+            const projectionLenSq = screenMotionVec.lengthSq();
+            if (projectionLenSq > 0.0001) {
+                const change = mouseMovePixels.dot(screenMotionVec) / projectionLenSq;
+                newValue = startValue + change;
+            }
         }
-
-        // 3. Project that 3D "1-unit move" to screen space (Pixels)
-        const rect = rendererRef.current.domElement.getBoundingClientRect();
-        const p1 = worldClickPoint.clone().project(camera);
-        const p2 = worldClickPoint.clone().add(moveDir3D).project(camera);
-        
-        const screenMotionVec = new THREE.Vector2(
-            (p2.x - p1.x) * rect.width / 2,
-            -(p2.y - p1.y) * rect.height / 2
-        );
-
-        // 4. Dot product: project mouse movement onto the screen motion vector
-        const projectionLenSq = screenMotionVec.lengthSq();
-        if (projectionLenSq < 0.0001) return; // Prevent division by zero
-
-        const change = mouseMovePixels.dot(screenMotionVec) / projectionLenSq;
-        let newValue = startValue + change;
 
         // Apply limits
         if (joint.limit) {
@@ -338,8 +423,7 @@ const Viewer: React.FC<ViewerProps> = (props) => {
 
     const handleMouseUpGlobal = () => {
         if (dragInfoRef.current) {
-            const { draggedMesh, originalMaterial } = dragInfoRef.current as any;
-            // Restore original material
+            const { draggedMesh, originalMaterial } = dragInfoRef.current;
             if (draggedMesh && originalMaterial) {
                 draggedMesh.material = originalMaterial;
             }
