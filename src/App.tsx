@@ -344,6 +344,69 @@ function App() {
     };
   }, []);
 
+  const flattenXacro = async (content: string, filesMap: Map<string, File>): Promise<string> => {
+      const includeRegex = /<xacro:include\s+filename=['"]([^'"]+)['"]\s*\/?>/g;
+      let match;
+      let newContent = content;
+      
+      // We need to handle matches one by one. 
+      // Since replacing changes indices, we can't iterate easily.
+      // Better: find all matches, resolve them, then replace.
+      
+      // Actually, standard while loop with replacement works if we restart or are careful.
+      // But simpler: split by regex? No.
+      
+      // Let's use a replaceAsync approach
+      const matches: { full: string, path: string, index: number }[] = [];
+      while ((match = includeRegex.exec(content)) !== null) {
+          matches.push({ full: match[0], path: match[1], index: match.index });
+      }
+      
+      // Process from last to first to avoid index shifting
+      for (let i = matches.length - 1; i >= 0; i--) {
+          const { full, path } = matches[i];
+          
+          // 1. Resolve $(find pkg)
+          // Simple replacement: $(find pkg) -> pkg
+          let resolvedPath = path.replace(/\$\(find\s+([\w_]+)\)/g, '$1');
+          
+          // 2. Find file
+          const file = findFileInMap(resolvedPath, filesMap);
+          
+          if (file) {
+              console.log(`[Flatten] Resolved ${path} -> ${file.name}`);
+              let fileText = await new Promise<string>((resolve) => {
+                  const reader = new FileReader();
+                  reader.onload = () => resolve(reader.result as string);
+                  reader.readAsText(file);
+              });
+              
+              // Clean fileText: remove XML declaration and root <robot> tags
+              fileText = fileText.replace(/<\?xml.*?\?>/g, '');
+              // Match <robot ...> but be careful not to match just any <robot
+              // We'll use a slightly safer regex to strip the first <robot> and last </robot>
+              fileText = fileText.replace(/<robot\b[^>]*>/, '');
+              fileText = fileText.replace(/<\/robot>\s*$/, '');
+              
+              // 3. Recurse
+              const flattenedInclude = await flattenXacro(fileText, filesMap);
+              
+              // 4. Replace
+              const before = newContent.substring(0, matches[i].index);
+              const after = newContent.substring(matches[i].index + full.length);
+              newContent = before + flattenedInclude + after;
+          } else {
+              console.warn(`[Flatten] Could not find file for include: ${path} (resolved: ${resolvedPath})`);
+              // Leave it? Or comment it out? 
+              // If we leave it, the parser will try and fail.
+              // Let's leave it and let the parser error out if it wants, or maybe it works if it's remote?
+              // But we are in "isLocal" mode.
+          }
+      }
+      
+      return newContent;
+  };
+
   const processAndSetContent = async (filename: string, content: string, isLocal = false) => {
     if (filename.toLowerCase().endsWith('.xacro')) {
       setLoading(true);
@@ -351,13 +414,13 @@ function App() {
         let urdfString = "";
         
         if (isLocal) {
-            // Client-side simple parsing for local Xacro
-            // WARNING: This does not support complex includes or $(find) unless we hook into the parser more deeply.
-            // For now, we do a best-effort parse of the main file.
+            // Manually flatten includes to bypass parser loader issues
+            const flattenedContent = await flattenXacro(content, localFilesRef.current);
+            console.log("Nxacro Flattening Complete. Size:", flattenedContent.length);
+            
             const parser = new XacroParser();
-            // TODO: If we want to support local includes, we need to provide a loader to XacroParser
-            // parser.loader = ...
-            const xml = await parser.parse(content);
+            const xml = await parser.parse(flattenedContent);
+            
             const serializer = new XMLSerializer();
             urdfString = serializer.serializeToString(xml);
         } else {
@@ -456,8 +519,6 @@ function App() {
           localFilesRef.current = filesMap;
           
           // Find entry file (.urdf or .xacro)
-          // Prioritize files with "main" in name if multiple exist, or just take first
-          let entryFile: File | undefined;
           const urdfFiles: File[] = [];
           
           filesMap.forEach((file, path) => {
@@ -469,11 +530,29 @@ function App() {
           if (urdfFiles.length === 0) {
               throw new Error("No .urdf or .xacro file found in the dropped folder.");
           }
+          
+          console.log("Found URDF/Xacro files:", urdfFiles.map(f => f.name));
 
-          // Simple heuristic: prefer 'main' or shortest name? 
-          // For now, if one of them is named 'main.xacro' or 'robot.urdf', maybe prioritize?
-          // Let's just take the first one found or maybe the one with the shortest path depth?
-          entryFile = urdfFiles[0]; // Simplest
+          // Heuristic to find the best entry point
+          // 1. Look for 'main' in the filename (user's specific request)
+          // 2. Look for 'robot' in the filename
+          // 3. Fallback to shortest path (likely in root)
+          
+          let entryFile = urdfFiles.find(f => f.name.toLowerCase().includes('main'));
+          
+          if (!entryFile) {
+              entryFile = urdfFiles.find(f => f.name.toLowerCase().includes('robot'));
+          }
+
+          if (!entryFile) {
+              // Sort by path length (depth), pick the shallowest one
+              // Since we don't have full path here easily accessible attached to File object in this array 
+              // (we only stored File objects), we might just pick the first one.
+              // But actually we have access to the map. Let's just pick the first one for now as fallback.
+              entryFile = urdfFiles[0];
+          }
+          
+          console.log("Selected Entry File:", entryFile?.name);
           
           if (entryFile) {
              const reader = new FileReader();
