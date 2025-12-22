@@ -6,7 +6,7 @@ const PROJECT_ROOT = path.resolve(__dirname, '..', '..');
 const PUBLIC_DIR = path.join(PROJECT_ROOT, 'public');
 const OUTPUT_MANIFEST = path.join(PUBLIC_DIR, 'files.json');
 
-console.log(`Scanning for URDF files in: ${PUBLIC_DIR}`);
+console.log(`Scanning directory: ${PUBLIC_DIR}`);
 
 function getFiles(dir, fileList = []) {
   const files = fs.readdirSync(dir);
@@ -15,20 +15,45 @@ function getFiles(dir, fileList = []) {
     if (fs.statSync(filePath).isDirectory()) {
       getFiles(filePath, fileList);
     } else {
-      // Only include .urdf files for the static manifest
-      if (file.toLowerCase().endsWith('.urdf')) {
-          fileList.push(filePath);
-      }
+      fileList.push(filePath);
     }
   });
   return fileList;
 }
 
-const allUrdfFiles = getFiles(PUBLIC_DIR);
-const manifest = allUrdfFiles.map(f => {
-    return path.relative(PUBLIC_DIR, f).replace(/\\/g, '/');
-});
+function isEntryFile(filename) {
+    const lower = filename.toLowerCase();
+    
+    // Valid extensions
+    if (!lower.endsWith('.urdf') && !lower.endsWith('.xacro')) return false;
+    
+    const relPath = path.relative(PUBLIC_DIR, filename);
+    const depth = relPath.split(path.sep).length;
 
-fs.writeFileSync(OUTPUT_MANIFEST, JSON.stringify(manifest, null, 2));
-console.log(`Manifest created with ${manifest.length} URDF samples.`);
-console.log(manifest);
+    // 1. Root files are always entries
+    if (depth === 1) return true; 
+    
+    // 2. Subdirectory files: ONLY show 'main' files as requested by user
+    if (lower.includes('main')) {
+        return true;
+    }
+    
+    // 3. Pure URDFs in subdirs are usually entry points
+    if (lower.endsWith('.urdf')) return true;
+
+    return false;
+}
+
+const allFiles = getFiles(PUBLIC_DIR);
+const sampleFiles = [];
+
+for (const filePath of allFiles) {
+    if (isEntryFile(filePath)) {
+        const relPath = path.relative(PUBLIC_DIR, filePath).replace(/\\/g, '/');
+        sampleFiles.push(relPath);
+    }
+}
+
+fs.writeFileSync(OUTPUT_MANIFEST, JSON.stringify(sampleFiles, null, 2));
+console.log(`Manifest created with ${sampleFiles.length} samples.`);
+console.log(sampleFiles);

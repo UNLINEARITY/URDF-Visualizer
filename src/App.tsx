@@ -373,6 +373,75 @@ function App() {
     };
   }, []);
 
+  const resolveUrlPath = (base: string, relative: string) => {
+      if (relative.startsWith('http') || relative.startsWith('/')) return relative;
+      const stack = base.split('/');
+      stack.pop(); // Remove filename
+      const parts = relative.split('/');
+      for (const part of parts) {
+          if (part === '.') continue;
+          if (part === '..') stack.pop();
+          else stack.push(part);
+      }
+      return stack.join('/');
+  };
+
+  const fetchAndFlattenXacro = async (url: string): Promise<string> => {
+      console.log(`[Xacro] Fetching: ${url}`);
+      const response = await fetch(url);
+      if (!response.ok) throw new Error(`Failed to fetch ${url}`);
+      const content = await response.text();
+      
+      // Handle spaces around =
+      const includeRegex = /<xacro:include\s+filename\s*=\s*['"]([^'"]+)['"]\s*\/?>/g;
+      let match;
+      let newContent = content;
+      const matches: { full: string, path: string, index: number }[] = [];
+      
+      while ((match = includeRegex.exec(content)) !== null) {
+          matches.push({ full: match[0], path: match[1], index: match.index });
+      }
+
+      const baseUrl = import.meta.env.BASE_URL.endsWith('/') ? import.meta.env.BASE_URL : import.meta.env.BASE_URL + '/';
+
+      for (let i = matches.length - 1; i >= 0; i--) {
+          const { full, path: includePath } = matches[i];
+          let targetUrl = '';
+
+          // Handle $(find pkg)
+          let cleanPath = includePath.replace(/\$\([a-z_]+\s+([\w_]+)\)/g, 'package://$1'); // $(find pkg) -> package://pkg
+          
+          // Remove leading slash if present to avoid double slash with baseUrl
+          if (cleanPath.startsWith('/')) cleanPath = cleanPath.substring(1);
+
+          if (cleanPath.startsWith('package://')) {
+               const pkgPath = cleanPath.replace('package://', '');
+               targetUrl = baseUrl + pkgPath;
+          } else {
+               targetUrl = resolveUrlPath(url, cleanPath);
+          }
+          
+          // Fix double slashes just in case (except http://)
+          targetUrl = targetUrl.replace(/([^:])\/\//g, '$1/');
+
+          try {
+              let includedContent = await fetchAndFlattenXacro(targetUrl);
+               // Clean content
+              includedContent = includedContent.replace(/<\?xml.*?\?>/g, '');
+              // Remove <robot> tag and anything following the closing tag (like comments)
+              includedContent = includedContent.replace(/<robot\b[^>]*>/, '');
+              includedContent = includedContent.replace(/<\/robot>[\s\S]*$/, '');
+              
+              const before = newContent.substring(0, matches[i].index);
+              const after = newContent.substring(matches[i].index + full.length);
+              newContent = before + includedContent + after;
+          } catch (e) {
+              console.warn(`Failed to include ${targetUrl}`, e);
+          }
+      }
+      return newContent;
+  };
+
   const flattenXacro = async (content: string, filesMap: Map<string, File>): Promise<string> => {
       const includeRegex = /<xacro:include\s+filename=['"]([^'"]+)['"]\s*\/?>/g;
       let match;
@@ -440,22 +509,25 @@ function App() {
             const flattenedContent = await flattenXacro(content, localFilesRef.current);
             
             const parser = new XacroParser();
+            parser.rospack = { find: (pkg) => `package://${pkg}` };
             const xml = await parser.parse(flattenedContent);
             
             const serializer = new XMLSerializer();
             urdfString = serializer.serializeToString(xml);
         } else {
-            // Server-side parsing (supports includes via backend)
+            // Server-side parsing (supports includes via backend) OR Client-side pre-flattened
             const response = await fetch(`/api/xacro-to-urdf?file=${encodeURIComponent(filename)}`);
             if (!response.ok) throw new Error(await response.text());
             const assembledXacro = await response.text();
             
             const parser = new XacroParser();
+            parser.rospack = { find: (pkg) => `package://${pkg}` };
             const xml = await parser.parse(assembledXacro);
             const serializer = new XMLSerializer();
             urdfString = serializer.serializeToString(xml);
         }
         
+        console.log("[App] Generated URDF (preview):", urdfString.slice(0, 500));
         setUrdfContent(urdfString);
       } catch (err) {
         console.error("Xacro parsing error:", err);
@@ -540,20 +612,34 @@ function App() {
     // Clear local map when switching to sample
     localFilesRef.current.clear();
 
-    // STATIC MODE: No need to parse Xacro dynamically, just fetch the file
-    // which is likely a .generated.urdf now (pointed to by files.json)
+    // STATIC MODE: Client-side fetching and flattening
     if (isStaticMode) {
         setLoading(true);
-        fetch(filename)
-            .then(res => res.text())
-            .then(content => {
-                setCurrentFilePath(filename);
-                setUrdfContent(content);
-            })
-            .catch(err => {
-                 setError(`Failed to fetch ${filename}`);
-                 setLoading(false);
-            });
+        setCurrentFilePath(filename);
+
+        if (filename.endsWith('.xacro')) {
+             fetchAndFlattenXacro(filename)
+                .then(content => {
+                    // Pass as 'local' (true) to skip backend call, but we already flattened it,
+                    // so processAndSetContent will essentially just parse the URDF string.
+                    processAndSetContent(filename, content, true);
+                })
+                .catch(err => {
+                    console.error(err);
+                    setError(`Failed to load Xacro: ${err.message}`);
+                    setLoading(false);
+                });
+        } else {
+             fetch(filename)
+                .then(res => res.text())
+                .then(content => {
+                    setUrdfContent(content);
+                })
+                .catch(err => {
+                     setError(`Failed to fetch ${filename}`);
+                     setLoading(false);
+                });
+        }
         return;
     }
 
