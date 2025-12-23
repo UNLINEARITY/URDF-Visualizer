@@ -9,6 +9,7 @@ import Viewer from './components/Viewer';
 import JointController from './components/JointController';
 import DisplayOptions from './components/DisplayOptions';
 import InfoPopup from './components/InfoPopup';
+import StructureTree from './components/StructureTree';
 import { getAllFiles, findFileInMap } from './utils/fileUtils';
 
 interface LinkSelection {
@@ -39,6 +40,7 @@ function App() {
   const [showLinkAxes, setShowLinkAxes] = useState(false);
   const [showJointAxes, setShowJointAxes] = useState(false);
   const [wireframe, setWireframe] = useState(false);
+  const [showStructureTree, setShowStructureTree] = useState(false);
   
   const [isCtrlPressed, setIsCtrlPressed] = useState(false);
   const [sampleFiles, setSampleFiles] = useState<string[]>([]);
@@ -783,6 +785,25 @@ function App() {
           onJointChange={handleJointChange}
           onMatrixUpdate={() => {}} // No-op, driven by onSelectionUpdate now
         />
+
+        {/* Floating Toggle Button for Structure Tree */}
+        {robot && (
+            <button 
+                className="structure-tree-toggle"
+                onClick={() => setShowStructureTree(!showStructureTree)}
+                title="Toggle Kinematic Structure Tree"
+            >
+                🌳
+            </button>
+        )}
+
+        {/* Structure Tree Overlay */}
+        {showStructureTree && robot && (
+            <StructureTree 
+                robot={robot} 
+                onClose={() => setShowStructureTree(false)} 
+            />
+        )}
       </div>
     </div>
   );

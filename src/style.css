@@ -39,6 +39,7 @@ canvas {
 .viewer-container {
   flex-grow: 1;
   position: relative;
+  overflow: hidden; /* Ensure full-screen overlays don't overflow */
 }
 
 .ui-container {
@@ -205,4 +206,96 @@ canvas {
   border: 4px dashed #666;
   border-radius: 10px;
   background-color: rgba(40, 40, 40, 0.8);
+}
+
+/* --- New Fullscreen Structure Tree --- */
+.structure-tree-toggle {
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background-color: #2196f3;
+    border: 2px solid white;
+    color: white;
+    font-size: 1.5rem;
+    cursor: pointer;
+    z-index: 800;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+    transition: transform 0.2s, background-color 0.2s;
+}
+
+.structure-tree-toggle:hover {
+    background-color: #42a5f5;
+    transform: scale(1.1);
+}
+
+.structure-tree-fullscreen {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(20, 20, 20, 0.95);
+    z-index: 2000; /* On top of everything */
+    overflow: hidden;
+    cursor: grab;
+    backdrop-filter: blur(10px);
+}
+
+.structure-tree-fullscreen:active {
+    cursor: grabbing;
+}
+
+.structure-tree-controls {
+    position: absolute;
+    top: 20px;
+    left: 20px;
+    background: rgba(0,0,0,0.6);
+    padding: 15px;
+    border-radius: 8px;
+    border: 1px solid #444;
+    pointer-events: none; /* Let clicks pass through to canvas if not on buttons */
+    z-index: 2001;
+}
+
+.structure-tree-controls h3 {
+    margin: 0 0 5px 0;
+    color: white;
+}
+
+.structure-tree-controls p {
+    margin: 0 0 10px 0;
+    color: #aaa;
+    font-size: 0.9rem;
+}
+
+.close-btn-lg {
+    pointer-events: auto;
+    background-color: #e53935;
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-weight: bold;
+    transition: background-color 0.2s;
+}
+
+.close-btn-lg:hover {
+    background-color: #ef5350;
+}
+
+/* SVG Elements */
+.tree-node-visual rect {
+    transition: fill 0.2s, stroke 0.2s;
+}
+
+.tree-node-visual:hover rect {
+    stroke: white;
+    stroke-width: 2px;
 }
