@@ -7,6 +7,8 @@ interface StructureTreeProps {
   onClose: () => void;
   onSelect: (node: Object3D) => void;
   isCtrlPressed: boolean;
+  selectedLinkName: string | null;
+  selectedJointName: string | null;
 }
 
 // --- Data Structures ---
@@ -110,7 +112,9 @@ const JointIcon = ({ x, y }: { x: number, y: number }) => (
     </g>
 );
 
-const StructureTree: React.FC<StructureTreeProps> = ({ robot, onClose, onSelect, isCtrlPressed }) => {
+const StructureTree: React.FC<StructureTreeProps> = ({ 
+    robot, onClose, onSelect, isCtrlPressed, selectedLinkName, selectedJointName 
+}) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [viewState, setViewState] = useState({ x: 0, y: 0, scale: 1 });
   const [isDragging, setIsDragging] = useState(false);
@@ -119,6 +123,36 @@ const StructureTree: React.FC<StructureTreeProps> = ({ robot, onClose, onSelect,
   const [hoveredNode, setHoveredNode] = useState<TreeNodeData | null>(null);
 
   const rawTreeData = useMemo(() => buildTreeData(robot), [robot]);
+  
+  // Auto-expand to selection
+  useEffect(() => {
+      if (!rawTreeData) return;
+      
+      const targetName = selectedJointName || selectedLinkName;
+      if (!targetName) return;
+
+      const path = new Set<string>();
+      
+      const findPath = (node: TreeNodeData): boolean => {
+          if (node.name === targetName) return true;
+          for (const child of node.children) {
+              if (findPath(child)) {
+                  path.add(node.id);
+                  return true;
+              }
+          }
+          return false;
+      };
+
+      if (findPath(rawTreeData)) {
+          setCollapsedIds(prev => {
+              const next = new Set(prev);
+              path.forEach(id => next.delete(id)); // Remove from collapsed set to expand
+              return next;
+          });
+      }
+  }, [selectedLinkName, selectedJointName, rawTreeData]);
+
   const treeData = useMemo(() => {
       if (!rawTreeData) return null;
       calculateLayout(rawTreeData, 0, 50, collapsedIds);
@@ -209,7 +243,13 @@ const StructureTree: React.FC<StructureTreeProps> = ({ robot, onClose, onSelect,
 
   const renderNodes = (node: TreeNodeData) => {
     const isJointNode = node.type === 'joint';
-    const strokeColor = isJointNode ? '#66bb6a' : '#42a5f5';
+    
+    // Check if this node is currently selected in the App state
+    const isSelected = isJointNode 
+        ? node.name === selectedJointName 
+        : node.name === selectedLinkName;
+
+    const strokeColor = isSelected ? '#ffffff' : (isJointNode ? '#66bb6a' : '#42a5f5');
     const fillColor = isJointNode ? 'rgba(27, 94, 32, 0.85)' : 'rgba(13, 71, 161, 0.85)';
     const iconColor = isJointNode ? '#66bb6a' : '#42a5f5';
 
@@ -217,18 +257,50 @@ const StructureTree: React.FC<StructureTreeProps> = ({ robot, onClose, onSelect,
       <React.Fragment key={`node-${node.id}`}>
         <g 
             transform={`translate(${node.x}, ${node.y})`} 
-            className="tree-node-visual"
+            className={`tree-node-visual ${isSelected ? 'selected' : ''}`}
             onClick={(e) => handleNodeClick(e, node)}
             onContextMenu={(e) => handleNodeRightClick(e, node)}
             onMouseEnter={() => setHoveredNode(node)}
             onMouseLeave={() => setHoveredNode(null)}
             style={{ cursor: 'pointer' }}
         >
-            <rect width={NODE_WIDTH} height={NODE_HEIGHT} rx="6" fill={fillColor} stroke={strokeColor} strokeWidth={1} />
+            {/* Selection Glow */}
+            {isSelected && (
+                <rect 
+                    width={NODE_WIDTH + 8} 
+                    height={NODE_HEIGHT + 8} 
+                    x="-4" 
+                    y="-4" 
+                    rx="8" 
+                    fill="none" 
+                    stroke="white" 
+                    strokeWidth="2" 
+                    opacity="0.5"
+                    style={{ filter: 'blur(4px)' }}
+                />
+            )}
+
+            <rect 
+                width={NODE_WIDTH} 
+                height={NODE_HEIGHT} 
+                rx="6" 
+                fill={fillColor} 
+                stroke={strokeColor} 
+                strokeWidth={isSelected ? 2.5 : 1} 
+            />
+            
             <g transform="translate(12, 14)" style={{ color: iconColor }}>
                 {isJointNode ? <JointIcon x={0} y={0} /> : <LinkIcon x={0} y={0} />}
             </g>
-            <text x="40" y="28" fill="#eee" fontSize="12" fontFamily="Inter, sans-serif" style={{ pointerEvents: 'none' }}>
+            <text 
+                x="40" 
+                y="28" 
+                fill="#eee" 
+                fontSize="12" 
+                fontFamily="Inter, sans-serif" 
+                fontWeight={isSelected ? 'bold' : 'normal'}
+                style={{ pointerEvents: 'none' }}
+            >
                 {node.name.length > 15 ? node.name.substring(0, 14) + '..' : node.name}
             </text>
             {node.hasChildren && (

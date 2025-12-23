@@ -814,6 +814,8 @@ function App() {
                 <StructureTree 
                     robot={robot} 
                     isCtrlPressed={isCtrlPressed}
+                    selectedLinkName={linkSelection.name}
+                    selectedJointName={jointSelection.joint?.name || null}
                     onClose={() => setShowStructureTree(false)} 
                     onSelect={(obj) => {
                         // Check type and call appropriate handler
