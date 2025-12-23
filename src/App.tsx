@@ -41,6 +41,7 @@ function App() {
   const [showJointAxes, setShowJointAxes] = useState(false);
   const [wireframe, setWireframe] = useState(false);
   const [showStructureTree, setShowStructureTree] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   
   const [isCtrlPressed, setIsCtrlPressed] = useState(false);
   const [sampleFiles, setSampleFiles] = useState<string[]>([]);
@@ -694,52 +695,64 @@ function App() {
               <h3>Drop URDF/Xacro Folder Here</h3>
           </div>
       )}
-      <div className="ui-container">
-        <h2>URDF Visualizer</h2>
-        <p>Load a sample or drag & drop a folder.</p>
-        <select onChange={handleSampleChange} value={sampleFiles.includes(currentFilePath) ? currentFilePath : ""} className="file-input">
-            <option value="">-- Select a Sample --</option>
-            {sampleFiles.map(f => <option key={f} value={f}>{f}</option>)}
-        </select>
-        
-        <label htmlFor="file-upload" className="custom-file-upload btn-file">
-            <i>📄</i> Select URDF/Xacro File
-        </label>
-        <input 
-            id="file-upload"
-            type="file" 
-            accept=".urdf,.xacro" 
-            onChange={handleFileChange} 
-            className="file-input-hidden" 
-        />
+      
+      {/* Sidebar Toggle Button */}
+      <button 
+          className={`sidebar-toggle ${sidebarCollapsed ? 'collapsed' : ''}`}
+          onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+          title={sidebarCollapsed ? "Expand Sidebar" : "Collapse Sidebar"}
+      >
+          {sidebarCollapsed ? "▶" : "◀"}
+      </button>
 
-        <label htmlFor="folder-upload" className="custom-file-upload btn-folder">
-            <i>📁</i> Select Project Folder
-        </label>
-        <input 
-            id="folder-upload"
-            type="file" 
-            {...{ webkitdirectory: "", directory: "" } as any} 
-            onChange={handleFolderChange} 
-            className="file-input-hidden" 
-        />
-        <hr />
-        <DisplayOptions
-            showWorldAxes={showWorldAxes} setShowWorldAxes={setShowWorldAxes}
-            showGrid={showGrid} setShowGrid={setShowGrid}
-            showLinkAxes={showLinkAxes} setShowLinkAxes={setShowLinkAxes}
-            showJointAxes={showJointAxes} setShowJointAxes={setShowJointAxes}
-            wireframe={wireframe} setWireframe={setWireframe}
-        />
-        <hr />
-        {robot && (
-            <JointController 
-                robot={robot} 
-                jointValues={jointValues} 
-                onJointChange={handleJointChange} 
+      <div className={`ui-container ${sidebarCollapsed ? 'collapsed' : ''}`}>
+        <div className="ui-content">
+            <h2>URDF Visualizer</h2>
+            <p>Load a sample or drag & drop a folder.</p>
+            <select onChange={handleSampleChange} value={sampleFiles.includes(currentFilePath) ? currentFilePath : ""} className="file-input">
+                <option value="">-- Select a Sample --</option>
+                {sampleFiles.map(f => <option key={f} value={f}>{f}</option>)}
+            </select>
+            
+            <label htmlFor="file-upload" className="custom-file-upload btn-file">
+                <i>📄</i> Select URDF/Xacro File
+            </label>
+            <input 
+                id="file-upload"
+                type="file" 
+                accept=".urdf,.xacro" 
+                onChange={handleFileChange} 
+                className="file-input-hidden" 
             />
-        )}
-        {error && <div style={{ color: 'red' }}>{error}</div>}
+
+            <label htmlFor="folder-upload" className="custom-file-upload btn-folder">
+                <i>📁</i> Select Project Folder
+            </label>
+            <input 
+                id="folder-upload"
+                type="file" 
+                {...{ webkitdirectory: "", directory: "" } as any} 
+                onChange={handleFolderChange} 
+                className="file-input-hidden" 
+            />
+            <hr />
+            <DisplayOptions
+                showWorldAxes={showWorldAxes} setShowWorldAxes={setShowWorldAxes}
+                showGrid={showGrid} setShowGrid={setShowGrid}
+                showLinkAxes={showLinkAxes} setShowLinkAxes={setShowLinkAxes}
+                showJointAxes={showJointAxes} setShowJointAxes={setShowJointAxes}
+                wireframe={wireframe} setWireframe={setWireframe}
+            />
+            <hr />
+            {robot && (
+                <JointController 
+                    robot={robot} 
+                    jointValues={jointValues} 
+                    onJointChange={handleJointChange} 
+                />
+            )}
+            {error && <div style={{ color: 'red' }}>{error}</div>}
+        </div>
       </div>
               <div className="viewer-container">
               {loading && <div className="loading-indicator">Loading...</div>}

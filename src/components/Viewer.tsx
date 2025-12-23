@@ -242,12 +242,22 @@ const Viewer: React.FC<ViewerProps> = (props) => {
     animate();
 
     const handleResize = () => {
-      if (!mountRef.current || !camera || !renderer) return;
-      camera.aspect = mountRef.current.clientWidth / mountRef.current.clientHeight;
-      camera.updateProjectionMatrix();
-      renderer.setSize(mountRef.current.clientWidth, mountRef.current.clientHeight);
+      if (!mountRef.current || !cameraRef.current || !rendererRef.current) return;
+      const width = mountRef.current.clientWidth;
+      const height = mountRef.current.clientHeight;
+      cameraRef.current.aspect = width / height;
+      cameraRef.current.updateProjectionMatrix();
+      rendererRef.current.setSize(width, height);
+      
+      // Force immediate re-render to prevent flickering/black frames during resize
+      if (sceneRef.current && cameraRef.current) {
+          rendererRef.current.render(sceneRef.current, cameraRef.current);
+      }
     };
-    window.addEventListener('resize', handleResize);
+
+    // Use ResizeObserver to detect container size changes (e.g. sidebar toggle)
+    const resizeObserver = new ResizeObserver(() => handleResize());
+    resizeObserver.observe(mountRef.current);
 
     // --- INTERACTION HANDLERS ---
 
@@ -601,7 +611,7 @@ const Viewer: React.FC<ViewerProps> = (props) => {
     
     return () => {
       cancelAnimationFrame(animationFrameId);
-      window.removeEventListener('resize', handleResize);
+      resizeObserver.disconnect();
       if (mountRef.current) {
         mountRef.current.removeEventListener('mousedown', handleMouseDown);
         mountRef.current.removeEventListener('mousemove', handleMouseMoveHover);
