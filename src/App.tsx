@@ -741,15 +741,14 @@ function App() {
         )}
         {error && <div style={{ color: 'red' }}>{error}</div>}
       </div>
-      <div className="viewer-container">
-        {loading && <div className="loading-indicator">Loading...</div>}
-        
-        {/* Link Info Popup */}
-        {linkSelection.visible && (
-            <InfoPopup
-                name={linkSelection.name}
-                matrix={linkSelection.matrix}
-                parentMatrix={linkSelection.parentMatrix}
+              <div className="viewer-container">
+              {loading && <div className="loading-indicator">Loading...</div>}
+              
+              {/* Link Info Popup - Hidden when Tree is open */}
+              {linkSelection.visible && !showStructureTree && (
+                  <InfoPopup
+                      name={linkSelection.name}
+                      matrix={linkSelection.matrix}                parentMatrix={linkSelection.parentMatrix}
                 top={linkSelection.position.y}
                 left={linkSelection.position.x}
                 onClose={closeLinkPopup}
@@ -757,8 +756,8 @@ function App() {
             />
         )}
 
-        {/* Joint Control Popup */}
-        {jointSelection.visible && jointSelection.joint && (
+        {/* Joint Control Popup - Hidden when Tree is open */}
+        {jointSelection.visible && jointSelection.joint && !showStructureTree && (
             <InfoPopup
                 name={jointSelection.joint.name}
                 matrix={null}
@@ -804,6 +803,21 @@ function App() {
             <StructureTree 
                 robot={robot} 
                 onClose={() => setShowStructureTree(false)} 
+                onSelect={(obj) => {
+                     // Check type and call appropriate handler
+                     // The tree only has joints and links.
+                     // handleSelectionUpdate expects (name, matrix, parentMatrix) for Links
+                     // handleJointSelect expects (joint) for Joints
+                     
+                     if ((obj as any).isURDFLink) {
+                         const link = obj as THREE.Object3D;
+                         link.updateWorldMatrix(true, false);
+                         handleSelectionUpdate(link.name, link.matrixWorld, link.parent ? link.parent.matrixWorld : null);
+                     } else if ((obj as any).isURDFJoint) {
+                         const joint = obj as URDFJoint;
+                         handleJointSelect(joint);
+                     }
+                }}
             />
         )}
       </div>

@@ -221,7 +221,7 @@ canvas {
     color: white;
     font-size: 1.5rem;
     cursor: pointer;
-    z-index: 800;
+    z-index: 2100; /* Higher than overlay (2000) and details (2010) */
     display: flex;
     align-items: center;
     justify-content: center;
@@ -240,11 +240,7 @@ canvas {
     left: 0;
     width: 100%;
     height: 100%;
-    /* Transparent background as requested, relying on interaction */
     background-color: transparent; 
-    /* No blur, just overlay. Or minimal blur? "Fully transparent background" usually means invisible. */
-    /* If completely invisible, mouse events might pass through to canvas? 
-       Yes, but we catch mouse events on the container. */
     z-index: 2000;
     overflow: hidden;
     cursor: grab;
@@ -260,120 +256,169 @@ canvas {
     left: 0;
     width: 100%;
     height: 100%;
-    pointer-events: none; /* Let clicks pass through to SVG */
+    pointer-events: none;
 }
 
-/* Header / Controls */
-.structure-tree-header-panel {
+/* Vertical Header Panel */
+.structure-tree-vertical-header {
     position: absolute;
     top: 20px;
     left: 20px;
-    background: rgba(0, 0, 0, 0.6);
-    padding: 10px 15px;
+    background: rgba(0, 0, 0, 0.85);
+    padding: 12px 16px;
     border-radius: 8px;
-    border: 1px solid #555;
+    border: 1px solid #444;
     pointer-events: auto;
     color: #eee;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+    backdrop-filter: blur(4px);
+    box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+    min-width: 120px;
 }
 
-.structure-tree-header-panel h3 {
+.structure-tree-vertical-header h3 {
     margin: 0;
-    font-size: 1rem;
-    color: #fff;
-}
-
-.structure-tree-header-panel p {
-    margin: 3px 0 0 0;
-    font-size: 0.8rem;
-    color: #aaa;
-}
-
-/* Close Button */
-.close-map-btn {
-    position: absolute;
-    top: 20px;
-    right: 20px;
-    pointer-events: auto;
-    background-color: rgba(229, 57, 53, 0.8);
-    color: white;
-    border: none;
-    padding: 8px 16px;
-    border-radius: 6px;
-    cursor: pointer;
+    font-size: 0.95rem;
     font-weight: 600;
+    color: #fff;
+    border-bottom: 1px solid #555;
+    padding-bottom: 8px;
+    width: 100%;
+    text-align: left;
+    /* Removed rotation/writing-mode */
+}
+
+.v-legend {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    width: 100%;
+}
+
+.v-legend-item {
+    display: flex;
+    flex-direction: row; /* Horizontal text */
+    align-items: center;
     font-size: 0.85rem;
-    transition: background-color 0.2s;
-    border: 1px solid #ef5350;
+    gap: 10px;
+    color: #ccc;
 }
 
-.close-map-btn:hover {
-    background-color: #ef5350;
+.v-dot {
+    width: 14px;
+    height: 14px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
-/* Node Details CENTER Overlay */
-.node-details-center-overlay {
+/* Joint = Circle */
+.v-dot.joint { 
+    background: transparent; 
+    border: 2px solid #66bb6a; 
+    border-radius: 50%; 
+    position: relative;
+}
+.v-dot.joint::after {
+    content: '';
+    width: 6px;
+    height: 6px;
+    background: #66bb6a;
+    border-radius: 50%;
+}
+
+/* Link = Square/Rect */
+.v-dot.link { 
+    background: transparent; 
+    border: 2px solid #42a5f5; 
+    border-radius: 3px; 
+    position: relative;
+}
+.v-dot.link::after {
+    content: '';
+    width: 1px;
+    height: 8px;
+    background: #42a5f5;
+    transform: rotate(45deg); /* stylized structure look */
+}
+.v-dot.link::before {
+    content: '';
+    width: 8px;
+    height: 1px;
+    background: #42a5f5;
     position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    width: 200px;
-    background-color: rgba(0, 0, 0, 0.85);
-    border: 2px solid #66bb6a;
-    border-radius: 12px;
-    padding: 20px;
-    pointer-events: none; /* Don't block interactions */
-    box-shadow: 0 0 50px rgba(0,0,0,0.8);
+    transform: rotate(45deg);
+}
+
+.v-hint {
+    font-size: 0.75rem;
+    color: #888;
+    margin-top: 5px;
+    padding-top: 8px;
+    border-top: 1px solid #444;
+    width: 100%;
+    /* Removed rotation */
+}
+
+/* Side Detail Panel (Bottom Right) */
+.node-details-side-panel {
+    position: absolute;
+    bottom: 20px;
+    right: 20px;
+    width: 220px;
+    background-color: rgba(20, 20, 20, 0.85);
+    border: 1px solid #555;
+    border-radius: 10px;
+    padding: 15px;
+    pointer-events: none;
+    box-shadow: 0 5px 20px rgba(0,0,0,0.5);
     color: #eee;
     z-index: 2010;
-    text-align: center;
     backdrop-filter: blur(5px);
 }
 
-.node-details-center-overlay h4 {
+.node-details-side-panel h4 {
     margin: 0 0 10px 0;
-    font-size: 1.2rem;
+    font-size: 1rem;
     color: #66bb6a;
     border-bottom: 1px solid #444;
-    padding-bottom: 8px;
+    padding-bottom: 5px;
 }
 
 .detail-row {
     display: flex;
     justify-content: space-between;
-    font-size: 0.95rem;
-    margin-bottom: 8px;
+    font-size: 0.85rem;
+    margin-bottom: 6px;
+}
+
+.limit-box {
+    margin-top: 10px;
+    padding: 8px;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 6px;
+}
+
+.limit-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.8rem;
+    color: #aaa;
 }
 
 .tag {
     background-color: #333;
-    padding: 2px 8px;
+    padding: 2px 6px;
     border-radius: 4px;
     font-family: monospace;
-    color: #fff;
-}
-
-.limit-labels {
-    display: flex;
-    justify-content: space-between;
-    font-size: 0.75rem;
-    color: #aaa;
-    margin-bottom: 4px;
-}
-
-.limit-bar-bg {
-    height: 4px;
-    background: #444;
-    border-radius: 2px;
-    width: 100%;
+    font-size: 0.8rem;
 }
 
 /* SVG Interactions */
-.tree-node-visual {
-    transition: transform 0.1s;
-}
-
-.tree-node-visual:hover {
+.tree-node-visual:hover rect {
     filter: brightness(1.2);
-    /* Scale up slightly on hover */
-    /* transform: scale(1.02); Note: transforms in SVG relative to origin are tricky without setting transform-origin */
 }
