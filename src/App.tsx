@@ -328,9 +328,11 @@ function App() {
         case 'l': setShowLinkAxes(v => !v); break;
         case 'j': setShowJointAxes(v => !v); break;
         case 'f': setWireframe(v => !v); break;
+        case 't': setShowStructureTree(v => !v); break;
         case 'escape': 
             closeLinkPopup(); 
             closeJointPopup();
+            setShowStructureTree(false);
             break;
       }
     };

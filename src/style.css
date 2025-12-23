@@ -39,7 +39,7 @@ canvas {
 .viewer-container {
   flex-grow: 1;
   position: relative;
-  overflow: hidden; /* Ensure full-screen overlays don't overflow */
+  overflow: hidden;
 }
 
 .ui-container {
@@ -208,7 +208,7 @@ canvas {
   background-color: rgba(40, 40, 40, 0.8);
 }
 
-/* --- New Fullscreen Structure Tree --- */
+/* --- Fullscreen Structure Tree --- */
 .structure-tree-toggle {
     position: absolute;
     top: 1rem;
@@ -240,62 +240,140 @@ canvas {
     left: 0;
     width: 100%;
     height: 100%;
-    background-color: rgba(20, 20, 20, 0.95);
-    z-index: 2000; /* On top of everything */
+    /* Transparent background as requested, relying on interaction */
+    background-color: transparent; 
+    /* No blur, just overlay. Or minimal blur? "Fully transparent background" usually means invisible. */
+    /* If completely invisible, mouse events might pass through to canvas? 
+       Yes, but we catch mouse events on the container. */
+    z-index: 2000;
     overflow: hidden;
     cursor: grab;
-    backdrop-filter: blur(10px);
 }
 
 .structure-tree-fullscreen:active {
     cursor: grabbing;
 }
 
-.structure-tree-controls {
+.structure-tree-ui-layer {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none; /* Let clicks pass through to SVG */
+}
+
+/* Header / Controls */
+.structure-tree-header-panel {
     position: absolute;
     top: 20px;
     left: 20px;
-    background: rgba(0,0,0,0.6);
-    padding: 15px;
+    background: rgba(0, 0, 0, 0.6);
+    padding: 10px 15px;
     border-radius: 8px;
-    border: 1px solid #444;
-    pointer-events: none; /* Let clicks pass through to canvas if not on buttons */
-    z-index: 2001;
-}
-
-.structure-tree-controls h3 {
-    margin: 0 0 5px 0;
-    color: white;
-}
-
-.structure-tree-controls p {
-    margin: 0 0 10px 0;
-    color: #aaa;
-    font-size: 0.9rem;
-}
-
-.close-btn-lg {
+    border: 1px solid #555;
     pointer-events: auto;
-    background-color: #e53935;
+    color: #eee;
+}
+
+.structure-tree-header-panel h3 {
+    margin: 0;
+    font-size: 1rem;
+    color: #fff;
+}
+
+.structure-tree-header-panel p {
+    margin: 3px 0 0 0;
+    font-size: 0.8rem;
+    color: #aaa;
+}
+
+/* Close Button */
+.close-map-btn {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    pointer-events: auto;
+    background-color: rgba(229, 57, 53, 0.8);
     color: white;
     border: none;
     padding: 8px 16px;
-    border-radius: 4px;
+    border-radius: 6px;
     cursor: pointer;
-    font-weight: bold;
+    font-weight: 600;
+    font-size: 0.85rem;
     transition: background-color 0.2s;
+    border: 1px solid #ef5350;
 }
 
-.close-btn-lg:hover {
+.close-map-btn:hover {
     background-color: #ef5350;
 }
 
-/* SVG Elements */
-.tree-node-visual rect {
-    transition: fill 0.2s, stroke 0.2s;
+/* Node Details CENTER Overlay */
+.node-details-center-overlay {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 200px;
+    background-color: rgba(0, 0, 0, 0.85);
+    border: 2px solid #66bb6a;
+    border-radius: 12px;
+    padding: 20px;
+    pointer-events: none; /* Don't block interactions */
+    box-shadow: 0 0 50px rgba(0,0,0,0.8);
+    color: #eee;
+    z-index: 2010;
+    text-align: center;
+    backdrop-filter: blur(5px);
 }
 
-.tree-node-visual:hover rect {
-    stroke: white;
-    stroke-width: 2px;
+.node-details-center-overlay h4 {
+    margin: 0 0 10px 0;
+    font-size: 1.2rem;
+    color: #66bb6a;
+    border-bottom: 1px solid #444;
+    padding-bottom: 8px;
+}
+
+.detail-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.95rem;
+    margin-bottom: 8px;
+}
+
+.tag {
+    background-color: #333;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-family: monospace;
+    color: #fff;
+}
+
+.limit-labels {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.75rem;
+    color: #aaa;
+    margin-bottom: 4px;
+}
+
+.limit-bar-bg {
+    height: 4px;
+    background: #444;
+    border-radius: 2px;
+    width: 100%;
+}
+
+/* SVG Interactions */
+.tree-node-visual {
+    transition: transform 0.1s;
+}
+
+.tree-node-visual:hover {
+    filter: brightness(1.2);
+    /* Scale up slightly on hover */
+    /* transform: scale(1.02); Note: transforms in SVG relative to origin are tricky without setting transform-origin */
 }
