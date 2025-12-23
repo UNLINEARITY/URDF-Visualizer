@@ -801,9 +801,19 @@ function App() {
 
         {/* Structure Tree Overlay - Always mounted to preserve state, toggled via CSS */}
         {robot && (
-            <div style={{ display: showStructureTree ? 'block' : 'none', position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', zIndex: 2000 }}>
+            <div style={{ 
+                display: showStructureTree ? 'block' : 'none', 
+                position: 'absolute', 
+                top: 0, 
+                left: 0, 
+                width: '100%', 
+                height: '100%', 
+                zIndex: 2000,
+                pointerEvents: isCtrlPressed ? 'none' : 'auto' 
+            }}>
                 <StructureTree 
                     robot={robot} 
+                    isCtrlPressed={isCtrlPressed}
                     onClose={() => setShowStructureTree(false)} 
                     onSelect={(obj) => {
                         // Check type and call appropriate handler

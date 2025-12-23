@@ -6,6 +6,7 @@ interface StructureTreeProps {
   robot: URDFRobot;
   onClose: () => void;
   onSelect: (node: Object3D) => void;
+  isCtrlPressed: boolean;
 }
 
 // --- Data Structures ---
@@ -109,7 +110,7 @@ const JointIcon = ({ x, y }: { x: number, y: number }) => (
     </g>
 );
 
-const StructureTree: React.FC<StructureTreeProps> = ({ robot, onClose, onSelect }) => {
+const StructureTree: React.FC<StructureTreeProps> = ({ robot, onClose, onSelect, isCtrlPressed }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [viewState, setViewState] = useState({ x: 0, y: 0, scale: 1 });
   const [isDragging, setIsDragging] = useState(false);
@@ -267,6 +268,8 @@ const StructureTree: React.FC<StructureTreeProps> = ({ robot, onClose, onSelect 
     <div 
         className="structure-tree-fullscreen"
         ref={containerRef}
+        // If Ctrl is pressed, disable pointer events to let interactions pass through to Viewer (OrbitControls)
+        style={{ pointerEvents: isCtrlPressed ? 'none' : 'auto' }}
         onWheel={handleWheel}
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
@@ -281,7 +284,7 @@ const StructureTree: React.FC<StructureTreeProps> = ({ robot, onClose, onSelect 
                     <div className="v-legend-item"><span className="v-dot joint"></span> Joint</div>
                     <div className="v-legend-item"><span className="v-dot link"></span> Link</div>
                 </div>
-                <div className="v-hint">L-Click: Select<br/>R-Click: Fold<br/>T: Toggle</div>
+                <div className="v-hint">Ctrl: Move 3D<br/>L-Click: Select<br/>R-Click: Fold<br/>T: Toggle</div>
             </div>
         </div>
         

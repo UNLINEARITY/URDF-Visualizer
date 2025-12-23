@@ -177,6 +177,26 @@ const Viewer: React.FC<ViewerProps> = (props) => {
     mountRef.current.appendChild(renderer.domElement);
     rendererRef.current = renderer;
 
+    // --- EVENT INTERCEPTOR FOR CTRL+CLICK ROTATION ---
+    // User holds Ctrl to pass through StructureTree, but wants standard Rotation (not Pan).
+    // OrbitControls reads event.ctrlKey. We capture the event and force ctrlKey to false
+    // for the OrbitControls logic, while keeping isCtrlPressedRef true for our own logic.
+    const stripCtrlKey = (e: MouseEvent | PointerEvent) => {
+        if (e.ctrlKey) {
+            // Force ctrlKey to false so OrbitControls treats it as a standard click (Rotate)
+            // instead of a Ctrl+Click (Pan)
+            Object.defineProperty(e, 'ctrlKey', { get: () => false });
+        }
+    };
+    // Attach with capture=true to run before OrbitControls listeners
+    // OrbitControls uses PointerEvents by default in newer Three.js versions
+    renderer.domElement.addEventListener('pointerdown', stripCtrlKey, { capture: true });
+    renderer.domElement.addEventListener('pointermove', stripCtrlKey, { capture: true });
+    renderer.domElement.addEventListener('pointerup', stripCtrlKey, { capture: true });
+    renderer.domElement.addEventListener('mousedown', stripCtrlKey, { capture: true });
+    renderer.domElement.addEventListener('mousemove', stripCtrlKey, { capture: true });
+    renderer.domElement.addEventListener('mouseup', stripCtrlKey, { capture: true });
+
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
     controlsRef.current = controls;
