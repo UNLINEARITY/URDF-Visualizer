@@ -42,7 +42,7 @@ function App() {
   
   const [isCtrlPressed, setIsCtrlPressed] = useState(false);
   const [sampleFiles, setSampleFiles] = useState<string[]>([]);
-  const [isStaticMode, setIsStaticMode] = useState(false);
+  // const [isStaticMode, setIsStaticMode] = useState(false); // Removed
   
   // -- GLOBAL JOINT STATE --
   const [jointValues, setJointValues] = useState<Record<string, number>>({});
@@ -143,38 +143,21 @@ function App() {
   const closeJointPopup = () => setJointSelection(prev => ({ ...prev, visible: false }));
 
 
-  // Effect to fetch the list of sample files from the backend OR static manifest
+  // Effect to fetch the list of sample files from the static manifest
   useEffect(() => {
-    // Try static first
     fetch('files.json')
         .then(res => {
             if (res.ok && res.headers.get('content-type')?.includes('json')) {
                 return res.json().then(files => {
                     console.log("Loaded static manifest", files);
                     setSampleFiles(files);
-                    setIsStaticMode(true);
                 });
             } else {
                 throw new Error("No static manifest");
             }
         })
-        .catch(() => {
-            // Fallback to API
-            console.log("Static manifest not found, trying API...");
-            fetch('/api/samples')
-              .then(res => {
-                if (!res.ok) {
-                  throw new Error('Network response was not ok');
-                }
-                return res.json();
-              })
-              .then(files => {
-                setSampleFiles(files);
-                setIsStaticMode(false);
-              })
-              .catch(err => {
-                console.error("Failed to fetch sample files:", err);
-              });
+        .catch(err => {
+            console.error("Failed to load sample list:", err);
         });
   }, []);
 
@@ -225,10 +208,7 @@ function App() {
 
           // 1. Handle ROS package:// protocol
           if (url.startsWith('package://')) {
-              if (isStaticMode) {
-                   return baseUrl + url.replace('package://', '');
-              }
-              return url.replace('package://', '/api/assets/');
+               return baseUrl + url.replace('package://', '');
           }
           
           // 2. Handle relative paths
@@ -237,17 +217,11 @@ function App() {
               // and the path doesn't already have '../'
               if (modelDir.endsWith('/urdf') && !url.startsWith('..')) {
                   // Try to look in the package root instead of the urdf folder
-                  if (isStaticMode) {
-                      return `${baseUrl}${modelPackageRoot}/${url}`;
-                  }
-                  return `/api/assets/${modelPackageRoot}/${url}`;
+                  return `${baseUrl}${modelPackageRoot}/${url}`;
               }
 
               const fullAssetPath = modelDir ? `${modelDir}/${url}` : url;
-              if (isStaticMode) {
-                  return `${baseUrl}${fullAssetPath}`;
-              }
-              return `/api/assets/${fullAssetPath}`;
+              return `${baseUrl}${fullAssetPath}`;
           }
           
           return url;
@@ -335,7 +309,7 @@ function App() {
       }
     }, 10);
 
-  }, [urdfContent, isStaticMode]); // Added isStaticMode dependency
+  }, [urdfContent]); // Removed isStaticMode dependency
 
 
   // Keyboard shortcuts effect
@@ -504,28 +478,20 @@ function App() {
       try {
         let urdfString = "";
         
-        if (isLocal) {
-            // Manually flatten includes to bypass parser loader issues
-            const flattenedContent = await flattenXacro(content, localFilesRef.current);
-            
-            const parser = new XacroParser();
-            parser.rospack = { find: (pkg) => `package://${pkg}` };
-            const xml = await parser.parse(flattenedContent);
-            
-            const serializer = new XMLSerializer();
-            urdfString = serializer.serializeToString(xml);
-        } else {
-            // Server-side parsing (supports includes via backend) OR Client-side pre-flattened
-            const response = await fetch(`/api/xacro-to-urdf?file=${encodeURIComponent(filename)}`);
-            if (!response.ok) throw new Error(await response.text());
-            const assembledXacro = await response.text();
-            
-            const parser = new XacroParser();
-            parser.rospack = { find: (pkg) => `package://${pkg}` };
-            const xml = await parser.parse(assembledXacro);
-            const serializer = new XMLSerializer();
-            urdfString = serializer.serializeToString(xml);
-        }
+        // If it's a local file (Drag & Drop) or a pre-flattened static file
+        // We use the local parser logic. 
+        // Note: For Drag & Drop, 'localFilesRef' has files. 
+        // For Static Samples, 'localFilesRef' is empty, but 'content' is already flattened by fetchAndFlattenXacro.
+        // So flattenXacro(content, emptyMap) -> returns content unchanged.
+        
+        const flattenedContent = await flattenXacro(content, localFilesRef.current);
+        
+        const parser = new XacroParser();
+        parser.rospack = { find: (pkg) => `package://${pkg}` };
+        const xml = await parser.parse(flattenedContent);
+        
+        const serializer = new XMLSerializer();
+        urdfString = serializer.serializeToString(xml);
         
         console.log("[App] Generated URDF (preview):", urdfString.slice(0, 500));
         setUrdfContent(urdfString);
@@ -612,55 +578,33 @@ function App() {
     // Clear local map when switching to sample
     localFilesRef.current.clear();
 
-    // STATIC MODE: Client-side fetching and flattening
-    if (isStaticMode) {
-        setLoading(true);
-        setCurrentFilePath(filename);
-
-        if (filename.endsWith('.xacro')) {
-             fetchAndFlattenXacro(filename)
-                .then(content => {
-                    // Pass as 'local' (true) to skip backend call, but we already flattened it,
-                    // so processAndSetContent will essentially just parse the URDF string.
-                    processAndSetContent(filename, content, true);
-                })
-                .catch(err => {
-                    console.error(err);
-                    setError(`Failed to load Xacro: ${err.message}`);
-                    setLoading(false);
-                });
-        } else {
-             fetch(filename)
-                .then(res => res.text())
-                .then(content => {
-                    setUrdfContent(content);
-                })
-                .catch(err => {
-                     setError(`Failed to fetch ${filename}`);
-                     setLoading(false);
-                });
-        }
-        return;
-    }
-
     setLoading(true);
-    fetch(filename)
-      .then(res => {
-        if (!res.ok) {
-          throw new Error(`HTTP error! status: ${res.status}`);
-        }
-        return res.text();
-      })
-      .then(content => {
-        setCurrentFilePath(filename);
-        processAndSetContent(filename, content, false);
-      })
-      .catch(err => {
-        console.error(`Failed to fetch ${filename}:`, err);
-        setError(`Failed to fetch ${filename}.`);
-        setLoading(false);
-      });
-  }, [isStaticMode]);
+    setCurrentFilePath(filename);
+
+    if (filename.endsWith('.xacro')) {
+            fetchAndFlattenXacro(filename)
+            .then(content => {
+                // Pass as 'local' (true) to skip backend call, but we already flattened it,
+                // so processAndSetContent will essentially just parse the URDF string.
+                processAndSetContent(filename, content, true);
+            })
+            .catch(err => {
+                console.error(err);
+                setError(`Failed to load Xacro: ${err.message}`);
+                setLoading(false);
+            });
+    } else {
+            fetch(filename)
+            .then(res => res.text())
+            .then(content => {
+                setUrdfContent(content);
+            })
+            .catch(err => {
+                    setError(`Failed to fetch ${filename}`);
+                    setLoading(false);
+            });
+    }
+  }, []);
 
   // --- Drag & Drop Handlers ---
   const handleDragOver = useCallback((e: React.DragEvent) => {

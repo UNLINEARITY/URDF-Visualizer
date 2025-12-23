@@ -1,8 +1,8 @@
 const fs = require('fs');
 const path = require('path');
 
-// Constants
-const PROJECT_ROOT = path.resolve(__dirname, '..', '..');
+// Constants (Adjusted for scripts/ folder in root)
+const PROJECT_ROOT = path.resolve(__dirname, '..'); 
 const PUBLIC_DIR = path.join(PROJECT_ROOT, 'public');
 const OUTPUT_MANIFEST = path.join(PUBLIC_DIR, 'files.json');
 
@@ -33,7 +33,7 @@ function isEntryFile(filename) {
     // 1. Root files are always entries
     if (depth === 1) return true; 
     
-    // 2. Subdirectory files: ONLY show 'main' files as requested by user
+    // 2. Subdirectory files: ONLY show 'main' files
     if (lower.includes('main')) {
         return true;
     }
@@ -44,16 +44,20 @@ function isEntryFile(filename) {
     return false;
 }
 
-const allFiles = getFiles(PUBLIC_DIR);
-const sampleFiles = [];
+try {
+    const allFiles = getFiles(PUBLIC_DIR);
+    const sampleFiles = [];
 
-for (const filePath of allFiles) {
-    if (isEntryFile(filePath)) {
-        const relPath = path.relative(PUBLIC_DIR, filePath).replace(/\\/g, '/');
-        sampleFiles.push(relPath);
+    for (const filePath of allFiles) {
+        if (isEntryFile(filePath)) {
+            const relPath = path.relative(PUBLIC_DIR, filePath).replace(/\\/g, '/');
+            sampleFiles.push(relPath);
+        }
     }
-}
 
-fs.writeFileSync(OUTPUT_MANIFEST, JSON.stringify(sampleFiles, null, 2));
-console.log(`Manifest created with ${sampleFiles.length} samples.`);
-console.log(sampleFiles);
+    fs.writeFileSync(OUTPUT_MANIFEST, JSON.stringify(sampleFiles, null, 2));
+    console.log(`\u2705 Success! Manifest created with ${sampleFiles.length} samples.`);
+    console.log(`   Location: ${OUTPUT_MANIFEST}`);
+} catch (e) {
+    console.error("\u274C Error scanning files:", e);
+}
