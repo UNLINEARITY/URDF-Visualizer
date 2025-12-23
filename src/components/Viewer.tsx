@@ -121,12 +121,42 @@ const Viewer: React.FC<ViewerProps> = (props) => {
       }
   }, [selectedJoint]);
 
-  // Sync internal link selection with prop (e.g. when closed from UI)
+  // Sync internal link selection with prop
   useEffect(() => {
-      if (selectedLinkName === null && selectedLinkRef.current !== null) {
-          unhighlightLink();
+      // 1. If we are already selecting this link, do nothing
+      if (selectedLinkRef.current && selectedLinkRef.current.name === selectedLinkName) {
+          return;
       }
-  }, [selectedLinkName]);
+
+      // 2. Unhighlight current
+      unhighlightLink();
+
+      // 3. Highlight new if exists
+      if (selectedLinkName && robot) {
+          let foundLink: URDFLink | null = null;
+          
+          // Breadth-first or traverse to find link by name
+          robot.traverse(c => {
+              if ((c as any).isURDFLink && c.name === selectedLinkName) {
+                  foundLink = c as URDFLink;
+              }
+          });
+
+          if (foundLink) {
+              const link = foundLink as URDFLink;
+              const mesh = link.getObjectByProperty('isMesh', true) as THREE.Mesh;
+              
+              if (mesh) {
+                  selectedLinkRef.current = link;
+                  originalLinkMaterialRef.current = mesh.material;
+                  mesh.material = linkHighlightMaterialRef.current;
+                  
+                  // We don't need to notify parent (onSelectionUpdate) because 
+                  // the parent is the one telling us to select it.
+              }
+          }
+      }
+  }, [selectedLinkName, robot]);
   
   // 1. Scene Initialization
   useEffect(() => {
