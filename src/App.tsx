@@ -86,7 +86,7 @@ function App() {
   }, [robot]);
   
   // Handles Link Selection & Updates (Called by Viewer on click AND in animate loop)
-  const handleSelectionUpdate = useCallback((name: string | null, matrix: THREE.Matrix4 | null, parentMatrix: THREE.Matrix4 | null) => {
+  const handleSelectionUpdate = useCallback((name: string | null, matrix: THREE.Matrix4 | null, parentMatrix: THREE.Matrix4 | null, visible: boolean = true) => {
       if (!name) {
           setLinkSelection(prev => ({...prev, visible: false, name: null, matrix: null, parentMatrix: null}));
           return;
@@ -101,7 +101,7 @@ function App() {
             name: name,
             matrix: matrix,
             parentMatrix: parentMatrix,
-            visible: true,
+            visible: visible, // Use the passed visibility
             position: prev.visible ? prev.position : position,
           };
       });
@@ -141,8 +141,8 @@ function App() {
     lastJointPosRef.current = pos;
   };
 
-  const closeLinkPopup = () => setLinkSelection(prev => ({ ...prev, visible: false }));
-  const closeJointPopup = () => setJointSelection(prev => ({ ...prev, visible: false }));
+  const closeLinkPopup = () => setLinkSelection(prev => ({ ...prev, visible: false, name: null }));
+  const closeJointPopup = () => setJointSelection(prev => ({ ...prev, visible: false, joint: null }));
 
 
   // Effect to fetch the list of sample files from the static manifest
@@ -774,7 +774,8 @@ function App() {
         <Viewer
           robot={robot}
           isCtrlPressed={isCtrlPressed}
-          selectedLinkName={linkSelection.visible ? linkSelection.name : null}
+          // Pass name regardless of visible flag, allowing highlight-only state
+          selectedLinkName={linkSelection.name}
           selectedJoint={jointSelection.visible ? jointSelection.joint : null}
           showWorldAxes={showWorldAxes}
           showGrid={showGrid}
@@ -798,27 +799,26 @@ function App() {
             </button>
         )}
 
-        {/* Structure Tree Overlay */}
-        {showStructureTree && robot && (
-            <StructureTree 
-                robot={robot} 
-                onClose={() => setShowStructureTree(false)} 
-                onSelect={(obj) => {
-                     // Check type and call appropriate handler
-                     // The tree only has joints and links.
-                     // handleSelectionUpdate expects (name, matrix, parentMatrix) for Links
-                     // handleJointSelect expects (joint) for Joints
-                     
-                     if ((obj as any).isURDFLink) {
-                         const link = obj as THREE.Object3D;
-                         link.updateWorldMatrix(true, false);
-                         handleSelectionUpdate(link.name, link.matrixWorld, link.parent ? link.parent.matrixWorld : null);
-                     } else if ((obj as any).isURDFJoint) {
-                         const joint = obj as URDFJoint;
-                         handleJointSelect(joint);
-                     }
-                }}
-            />
+        {/* Structure Tree Overlay - Always mounted to preserve state, toggled via CSS */}
+        {robot && (
+            <div style={{ display: showStructureTree ? 'block' : 'none', position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', zIndex: 2000 }}>
+                <StructureTree 
+                    robot={robot} 
+                    onClose={() => setShowStructureTree(false)} 
+                    onSelect={(obj) => {
+                        // Check type and call appropriate handler
+                        if ((obj as any).isURDFLink) {
+                            const link = obj as THREE.Object3D;
+                            link.updateWorldMatrix(true, false);
+                            // Pass visible=false to highlight WITHOUT showing the InfoPopup
+                            handleSelectionUpdate(link.name, link.matrixWorld, link.parent ? link.parent.matrixWorld : null, false);
+                        } else if ((obj as any).isURDFJoint) {
+                            const joint = obj as URDFJoint;
+                            handleJointSelect(joint);
+                        }
+                    }}
+                />
+            </div>
         )}
       </div>
     </div>
