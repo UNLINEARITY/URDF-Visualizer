@@ -1,0 +1,122 @@
+<?xml version="1.0"?>
+<robot name="complex_arm">
+
+  <!-- ================= base ================= -->
+  <link name="base_link">
+    <visual>
+      <origin xyz="0 0 0.05"/>
+      <geometry>
+        <box size="0.4 0.4 0.1"/>
+      </geometry>
+      <material name="dark_gray">
+        <color rgba="0.4 0.4 0.4 1"/>
+      </material>
+    </visual>
+  </link>
+
+  <!-- ================= vertical slider ================= -->
+  <link name="column">
+    <visual>
+      <origin xyz="0 0 0.3"/>
+      <geometry>
+        <cylinder radius="0.06" length="0.6"/>
+      </geometry>
+      <material name="silver">
+        <color rgba="0.7 0.7 0.7 1"/>
+      </material>
+    </visual>
+  </link>
+
+  <joint name="column_slide" type="prismatic">
+    <parent link="base_link"/>
+    <child link="column"/>
+    <origin xyz="0 0 0.1"/>
+    <axis xyz="0 0 1"/>
+    <limit lower="0.0" upper="0.3" effort="50" velocity="0.2"/>
+  </joint>
+
+  <!-- ================= shoulder ================= -->
+  <link name="shoulder">
+    <visual>
+      <origin xyz="0 0 0.1"/>
+      <geometry>
+        <box size="0.12 0.12 0.2"/>
+      </geometry>
+      <material name="blue">
+        <color rgba="0.2 0.3 0.9 1"/>
+      </material>
+    </visual>
+  </link>
+
+  <joint name="shoulder_yaw" type="revolute">
+    <parent link="column"/>
+    <child link="shoulder"/>
+    <origin xyz="0 0 0.6"/>
+    <axis xyz="0 0 1"/>
+    <limit lower="-3.14" upper="3.14" effort="10" velocity="1"/>
+  </joint>
+
+  <!-- ================= upper arm ================= -->
+  <link name="upper_arm">
+    <visual>
+      <origin xyz="0 0 0.25"/>
+      <geometry>
+        <box size="0.08 0.08 0.5"/>
+      </geometry>
+      <material name="green">
+        <color rgba="0.2 0.8 0.4 1"/>
+      </material>
+    </visual>
+  </link>
+
+  <joint name="shoulder_pitch" type="revolute">
+    <parent link="shoulder"/>
+    <child link="upper_arm"/>
+    <origin xyz="0 0 0.2"/>
+    <axis xyz="0 1 0"/>
+    <limit lower="-1.57" upper="1.57" effort="10" velocity="1"/>
+  </joint>
+
+  <!-- ================= forearm ================= -->
+  <link name="forearm">
+    <visual>
+      <origin xyz="0 0 0.25"/>
+      <geometry>
+        <box size="0.06 0.06 0.5"/>
+      </geometry>
+      <material name="orange">
+        <color rgba="0.9 0.6 0.2 1"/>
+      </material>
+    </visual>
+  </link>
+
+  <joint name="elbow_pitch" type="revolute">
+    <parent link="upper_arm"/>
+    <child link="forearm"/>
+    <origin xyz="0 0 0.5"/>
+    <axis xyz="0 1 0"/>
+    <limit lower="-2.0" upper="2.0" effort="10" velocity="1"/>
+  </joint>
+
+  <!-- ================= wrist ================= -->
+  <link name="wrist">
+    <visual>
+      <origin xyz="0 0 0.1"/>
+      <geometry>
+        <cylinder radius="0.04" length="0.2"/>
+      </geometry>
+      <material name="red">
+        <color rgba="0.9 0.2 0.2 1"/>
+      </material>
+    </visual>
+  </link>
+
+  <joint name="wrist_roll" type="revolute">
+    <parent link="forearm"/>
+    <child link="wrist"/>
+    <origin xyz="0 0 0.5"/>
+    <axis xyz="1 0 0"/>
+    <limit lower="-3.14" upper="3.14" effort="5" velocity="2"/>
+  </joint>
+
+</robot>

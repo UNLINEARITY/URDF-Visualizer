@@ -1,0 +1,13 @@
+[
+  "1.urdf",
+  "2.urdf",
+  "3.urdf",
+  "4.xacro",
+  "cassie/urdf/cassie.urdf",
+  "fractal_robot/main.xacro",
+  "g1/urdf/g1.urdf",
+  "go2/urdf/go2.urdf",
+  "go2/urdf/go2_modified.urdf",
+  "material_library/main.xacro",
+  "spider_robot/main.xacro"
+]

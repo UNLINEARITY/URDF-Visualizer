@@ -1,0 +1,38 @@
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro">
+  <xacro:macro name="spider_leg" params="side num angle">
+    <!-- Hip Joint -->
+    <joint name="hip_${side}_${num}" type="revolute">
+      <parent link="base_link"/>
+      <child link="thigh_${side}_${num}"/>
+      <origin xyz="${body_radius * cos(angle)} ${body_radius * sin(angle)} 0" rpy="0 0 ${angle}"/>
+      <axis xyz="0 0 1"/>
+      <limit lower="${-PI/4}" upper="${PI/4}" effort="10" velocity="1"/>
+    </joint>
+
+    <link name="thigh_${side}_${num}">
+      <visual>
+        <origin xyz="0.1 0 0" rpy="0 ${PI/2} 0"/>
+        <geometry><cylinder radius="0.03" length="0.2"/></geometry>
+        <material name="orange"/>
+      </visual>
+    </link>
+
+    <!-- Knee Joint -->
+    <joint name="knee_${side}_${num}" type="revolute">
+      <parent link="thigh_${side}_${num}"/>
+      <child link="shink_${side}_${num}"/>
+      <origin xyz="0.2 0 0" rpy="0 ${-PI/4} 0"/>
+      <axis xyz="0 1 0"/>
+      <limit lower="${-PI/2}" upper="${PI/2}" effort="10" velocity="1"/>
+    </joint>
+
+    <link name="shink_${side}_${num}">
+      <visual>
+        <origin xyz="0.1 0 0" rpy="0 ${PI/2} 0"/>
+        <geometry><cylinder radius="0.02" length="0.2"/></geometry>
+        <material name="silver"/>
+      </visual>
+    </link>
+  </xacro:macro>
+</robot>

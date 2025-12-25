@@ -1,0 +1,33 @@
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="material_test_station">
+  
+  <xacro:include filename="$(find material_library)/palette.xacro" />
+  <xacro:include filename="$(find material_library)/components.xacro" />
+
+  <link name="base_link">
+    <visual>
+      <geometry><cylinder radius="0.5" length="0.02"/></geometry>
+      <material name="carbon_fiber"/> <!-- From palette -->
+    </visual>
+  </link>
+
+  <!-- Instantiate sensors with different materials from the palette -->
+  <xacro:sensor_pod name="vision_sensor" parent="base_link" material_name="industrial_blue">
+    <origin xyz="0.3 0 0.05" rpy="0 0 0"/>
+  </xacro:sensor_pod>
+
+  <xacro:sensor_pod name="alert_beacon" parent="base_link" material_name="warning_yellow">
+    <origin xyz="-0.3 0 0.05" rpy="0 0 0"/>
+  </xacro:sensor_pod>
+
+  <!-- Direct use with manual color to check override -->
+  <link name="top_indicator">
+    <visual>
+      <origin xyz="0 0 0.5"/>
+      <geometry><sphere radius="0.05"/></geometry>
+      <material name="neon_green"/>
+    </visual>
+  </link>
+  <joint name="top_joint" type="fixed"><parent link="base_link"/><child link="top_indicator"/></joint>
+
+</robot>
