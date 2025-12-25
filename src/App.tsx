@@ -704,7 +704,22 @@ function App() {
 
       <div className={`ui-container ${sidebarCollapsed ? 'collapsed' : ''}`}>
         <div className="ui-content">
-            <h2>URDF Visualizer</h2>
+            <h2 style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                URDF Visualizer
+                <a 
+                    href="https://github.com/UNLINEARITY/URDF" 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    title="View on GitHub"
+                    style={{ textDecoration: 'none', display: 'flex', alignItems: 'center' }}
+                >
+                    <img 
+                        src="https://img.shields.io/github/stars/UNLINEARITY/URDF?style=social" 
+                        alt="GitHub stars" 
+                        style={{ height: '30px' }}
+                    />
+                </a>
+            </h2>
             <p>Load a sample or drag & drop a folder.</p>
             <select onChange={handleSampleChange} value={sampleFiles.includes(currentFilePath) ? currentFilePath : ""} className="file-input">
                 <option value="">-- Select a Sample --</option>

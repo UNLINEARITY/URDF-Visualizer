@@ -1,0 +1,161 @@
+# URDF Visualizer
+
+
+  <div  align="center" >
+    <a href="https://github.com/UNLINEARITY/URDF/stargazers">
+      <img src="https://img.shields.io/github/stars/UNLINEARITY/URDF.svg" alt="Stars">
+    </a>
+    <a href="https://github.com/UNLINEARITY/URDF/network/members">
+      <img src="https://img.shields.io/github/forks/UNLINEARITY/URDF.svg" alt="Forks">
+    </a>
+    <a href="https://github.com/UNLINEARITY/URDF/issues">
+      <img src="https://img.shields.io/github/issues/UNLINEARITY/URDF.svg" alt="Issues">
+    </a> <a href="https://github.com/UNLINEARITY/URDF/pulls">
+      <img src="https://img.shields.io/github/issues-pr/UNLINEARITY/URDF.svg" alt="Pull Requests">
+    </a>
+ </div>
+
+
+A professional, web-based visualization tool for **URDF** (Unified Robot Description Format) and **Xacro** robot models. Built on the modern web stack, this application allows for client-side parsing and rendering of complex robot descriptions without requiring a local ROS environment.
+
+一个基于 Web 的专业 **URDF** 和 **Xacro** 机器人模型可视化工具。基于现代 Web 技术栈构建，允许在无需本地 ROS 环境的情况下，在客户端直接解析并渲染复杂的机器人描述文件。
+
+**Live Demo / 在线演示:** [https://unlinearity.github.io/URDF/](https://unlinearity.github.io/URDF/)
+
+---
+
+## Overview / 项目概述
+
+This project solves the challenge of visualizing ROS robot models in a browser environment. It implements a custom file system abstraction to handle `package://` paths and performs recursive Xacro macro expansion purely in JavaScript.
+
+本项目解决了在浏览器环境中可视化 ROS 机器人模型的挑战。它实现了一个自定义的文件系统抽象层来处理 `package://` 路径，并完全使用 JavaScript 执行递归的 Xacro 宏展开。
+
+---
+
+## Key Features / 核心特性
+
+### 1. High-Fidelity Rendering / 高保真渲染
+- **Engine**: Powered by [Three.js](https://threejs.org/), supporting PBR materials, dynamic lighting, and shadows.
+  **引擎**: 基于 Three.js，支持 PBR 材质、动态光照和阴影。
+- **Visual Helpers**: Integrated grid systems, coordinate axes (World/Local), and joint visualization helpers.
+  **视觉辅助**: 集成网格系统、坐标轴（世界/局部）和关节可视化辅助工具。
+
+### 2. Comprehensive File Support / 全面的文件支持
+- **Drag & Drop Workflow**: Support for dragging entire directories containing URDFs, meshes (STL/DAE/OBJ), and textures.
+  **拖拽工作流**: 支持拖拽包含 URDF、网格模型 (STL/DAE/OBJ) 和纹理的完整目录。
+- **Path Resolution**: Automatically resolves ROS-style `package://` paths by mapping them to the uploaded folder structure.
+  **路径解析**: 通过将 ROS 风格的 `package://` 路径映射到上传的文件夹结构，实现自动资源解析。
+
+### 3. Advanced Xacro Engine / 高级 Xacro 引擎
+- **Client-Side Compilation**: Parses `.xacro` files directly in the browser.
+  **客户端编译**: 直接在浏览器中解析 `.xacro` 文件。
+- **Recursive Includes**: Handles nested `<xacro:include>` tags and resolves dependencies.
+  **递归包含**: 处理嵌套的 `<xacro:include>` 标签并解析依赖关系。
+- **ROS Command Simulation**: Simulates `$(find pkg_name)` commands using the virtual file context.
+  **ROS 命令模拟**: 利用虚拟文件上下文模拟 `$(find pkg_name)` 命令。
+
+### 4. Interactive Inspection / 交互式审查
+- **Kinematic Tree**: A visual graph displaying the hierarchical structure of Links and Joints.
+  **运动学树**: 展示连杆和关节层级结构的各类可视化图表。
+- **Joint Manipulation**: Interactive sliders to control joint angles with limit enforcement.
+  **关节操控**: 带有限位强制功能的交互式关节角度控制滑块。
+- **Matrix Inspection**: Real-time view of World/Local transformation matrices and Euler angles (RPY) for any selected part.
+  **矩阵审查**: 实时查看任意选中部件的世界/局部变换矩阵和欧拉角 (RPY)。
+
+---
+
+## User Guide / 使用指南
+
+### Loading Models / 加载模型
+
+1.  **Sample Library**: Select a pre-configured robot (e.g., Unitree Go2, Fourier G1) from the dropdown menu.
+    **样本库**: 从下拉菜单中选择预配置的机器人（如 Unitree Go2, Fourier G1）。
+2.  **Local Folder Upload**:
+    **本地文件夹上传**:
+    - Click **Select Project Folder** to upload a root folder containing your robot description (URDFs and Meshes).
+      点击 **Select Project Folder** 上传包含机器人描述（URDF 和 Meshes）的根目录。
+    - **Recommended Structure**: Ensure the folder mirrors a standard ROS package layout.
+      **推荐结构**: 确保文件夹结构符合标准 ROS 功能包布局。
+
+### Controls / 操作控制
+
+| Action / 动作 | Mouse / Mouse | Description / 说明 |
+| :--- | :--- | :--- |
+| **Rotate** / 旋转 | Left Click + Drag | Rotate the camera around the focus point. / 围绕焦点旋转相机。 |
+| **Pan** / 平移 | Right Click + Drag | Move the camera laterally. / 横向移动相机。 |
+| **Zoom** / 缩放 | Scroll Wheel | Zoom in or out. / 放大或缩小。 |
+| **Select** / 选择 | Left Click | Select a Link to inspect its properties. / 选择连杆以查看属性。 |
+| **Joint** / 关节 | **Ctrl** + Right Click | Select a Joint to view axis and control knob. / 选择关节以查看轴向和控制旋钮。 |
+
+### Keyboard Shortcuts / 键盘快捷键
+
+- **W**: Toggle World Axes / 显示或隐藏世界坐标系
+- **G**: Toggle Grid / 显示或隐藏地面网格
+- **L**: Toggle Link Axes / 显示或隐藏连杆局部坐标系
+- **J**: Toggle Joint Axes / 显示或隐藏关节轴指示器
+- **F**: Toggle Wireframe Mode / 切换线框渲染模式
+- **T**: Toggle Kinematic Tree / 显示或隐藏运动学结构树
+
+---
+
+## Development / 开发指南
+
+### Prerequisites / 环境要求
+- [Node.js](https://nodejs.org/) (Version 16 or higher)
+- [npm](https://www.npmjs.com/) (Node Package Manager)
+
+### Installation / 安装步骤
+
+Clone the repository and install dependencies:
+克隆仓库并安装依赖：
+
+```bash
+git clone https://github.com/UNLINEARITY/URDF.git
+cd URDF
+npm install
+```
+
+### Local Development / 本地开发
+
+Start the development server with Hot Module Replacement (HMR):
+启动带有热重载功能的开发服务器：
+
+```bash
+npm run dev
+```
+Access the application at [http://localhost:5173](http://localhost:5173).
+访问地址：[http://localhost:5173](http://localhost:5173)。
+
+### Deployment / 部署
+
+This project uses **Vite** for building and **gh-pages** for deployment.
+本项目使用 **Vite** 进行构建，使用 **gh-pages** 进行部署。
+
+1.  **Build**: Compiles TypeScript and bundles assets to the `dist` directory.
+    **构建**: 编译 TypeScript 并将资源打包至 `dist` 目录。
+2.  **Deploy**: Pushes the `dist` directory to the `gh-pages` branch.
+    **发布**: 将 `dist` 目录推送到 `gh-pages` 分支。
+
+```bash
+npm run deploy
+```
+
+---
+
+## Technology Stack / 技术栈
+
+This project leverages the following open-source technologies:
+本项目使用了以下开源技术：
+
+- **Core Framework**: [React](https://reactjs.org/) (v18) - Component-based UI library.
+- **3D Engine**: [Three.js](https://threejs.org/) - WebGL rendering engine.
+- **Build Tool**: [Vite](https://vitejs.dev/) - Fast frontend build tool.
+- **URDF Parsing**: [urdf-loader](https://github.com/gkjohnson/urdf-loader) - Comprehensive URDF loader for Three.js.
+- **Xacro Parsing**: [xacro-parser](https://github.com/gkjohnson/xacro-parser) - JavaScript-based Xacro parser.
+
+---
+
+## License / 许可协议
+
+This project is available under the MIT License. See the LICENSE file for more details.
+本项目基于 MIT 许可证开源。详情请参阅 LICENSE 文件。
