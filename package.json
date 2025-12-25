@@ -4,7 +4,7 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev": "npm run scan && vite",
     "build": "npm run scan && tsc && vite build",
     "scan": "node scripts/generate_manifest.js",
     "preview": "vite preview"

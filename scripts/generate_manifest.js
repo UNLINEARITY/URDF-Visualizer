@@ -1,5 +1,10 @@
-const fs = require('fs');
-const path = require('path');
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+// Define __dirname for ES modules
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // Constants (Adjusted for scripts/ folder in root)
 const PROJECT_ROOT = path.resolve(__dirname, '..'); 
@@ -28,6 +33,7 @@ function isEntryFile(filename) {
     if (!lower.endsWith('.urdf') && !lower.endsWith('.xacro')) return false;
     
     const relPath = path.relative(PUBLIC_DIR, filename);
+    // Note: On Windows relPath might use backslashes, split by path.sep covers both
     const depth = relPath.split(path.sep).length;
 
     // 1. Root files are always entries
@@ -50,6 +56,7 @@ try {
 
     for (const filePath of allFiles) {
         if (isEntryFile(filePath)) {
+            // Force forward slashes for URL compatibility
             const relPath = path.relative(PUBLIC_DIR, filePath).replace(/\\/g, '/');
             sampleFiles.push(relPath);
         }
