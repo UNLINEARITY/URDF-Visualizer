@@ -39,6 +39,7 @@ function App() {
   const [showGrid, setShowGrid] = useState(true);
   const [showLinkAxes, setShowLinkAxes] = useState(false);
   const [showJointAxes, setShowJointAxes] = useState(false);
+  const [showShadows, setShowShadows] = useState(false);
   const [wireframe, setWireframe] = useState(false);
   const [showStructureTree, setShowStructureTree] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -704,14 +705,14 @@ function App() {
 
       <div className={`ui-container ${sidebarCollapsed ? 'collapsed' : ''}`}>
         <div className="ui-content">
-            <h2 style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                URDF Visualizer
+            <div style={{ marginBottom: '1rem' , textAlign: 'center' }}>
+                <h2 style={{ margin: '0 0 0.5rem 0' }}>URDF Visualizer</h2>
                 <a 
                     href="https://github.com/UNLINEARITY/URDF" 
                     target="_blank" 
                     rel="noopener noreferrer"
                     title="View on GitHub"
-                    style={{ textDecoration: 'none', display: 'flex', alignItems: 'center' }}
+                    style={{ textDecoration: 'none', display: 'inline-block' }}
                 >
                     <img 
                         src="https://img.shields.io/github/stars/UNLINEARITY/URDF?style=social" 
@@ -719,7 +720,7 @@ function App() {
                         style={{ height: '30px' }}
                     />
                 </a>
-            </h2>
+            </div>
             <p>Load a sample or drag & drop a folder.</p>
             <select onChange={handleSampleChange} value={sampleFiles.includes(currentFilePath) ? currentFilePath : ""} className="file-input">
                 <option value="">-- Select a Sample --</option>
@@ -806,6 +807,7 @@ function App() {
           showGrid={showGrid}
           showLinkAxes={showLinkAxes}
           showJointAxes={showJointAxes}
+          showShadows={showShadows}
           wireframe={wireframe}
           onSelectionUpdate={handleSelectionUpdate}
           onJointSelect={handleJointSelect}
@@ -815,13 +817,24 @@ function App() {
 
         {/* Floating Toggle Button for Structure Tree */}
         {robot && (
-            <button 
-                className="structure-tree-toggle"
-                onClick={() => setShowStructureTree(!showStructureTree)}
-                title="Toggle Kinematic Structure Tree"
-            >
-                🌳
-            </button>
+            <>
+                <button 
+                    className="structure-tree-toggle"
+                    style={{ right: '4.5rem', backgroundColor: showShadows ? '#ffca28' : '#444', color: showShadows ? '#333' : '#aaa', borderColor: showShadows ? '#fff' : '#666' }}
+                    onClick={() => setShowShadows(!showShadows)}
+                    title="Toggle Shadows"
+                >
+                    ☀️
+                </button>
+
+                <button 
+                    className="structure-tree-toggle"
+                    onClick={() => setShowStructureTree(!showStructureTree)}
+                    title="Toggle Kinematic Structure Tree"
+                >
+                    🌳
+                </button>
+            </>
         )}
 
         {/* Structure Tree Overlay - Always mounted to preserve state, toggled via CSS */}

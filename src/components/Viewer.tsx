@@ -12,6 +12,7 @@ interface ViewerProps {
   showGrid: boolean;
   showLinkAxes: boolean;
   showJointAxes: boolean;
+  showShadows: boolean;
   wireframe: boolean;
   onSelectionUpdate: (name: string | null, matrix: THREE.Matrix4 | null, parentMatrix: THREE.Matrix4 | null) => void;
   onJointSelect: (joint: URDFJoint) => void;
@@ -20,7 +21,7 @@ interface ViewerProps {
 }
 
 const Viewer: React.FC<ViewerProps> = (props) => {
-  const { robot, isCtrlPressed, selectedLinkName, selectedJoint, showWorldAxes, showGrid, showLinkAxes, showJointAxes, wireframe, onSelectionUpdate, onJointSelect, onJointChange, onMatrixUpdate } = props;
+  const { robot, isCtrlPressed, selectedLinkName, selectedJoint, showWorldAxes, showGrid, showLinkAxes, showJointAxes, showShadows, wireframe, onSelectionUpdate, onJointSelect, onJointChange, onMatrixUpdate } = props;
   const mountRef = useRef<HTMLDivElement>(null);
 
   // Refs for three.js objects
@@ -203,10 +204,33 @@ const Viewer: React.FC<ViewerProps> = (props) => {
     controls.enableDamping = true;
     controlsRef.current = controls;
 
-    scene.add(new THREE.AmbientLight(0xffffff, 0.6));
-    const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
-    directionalLight.position.set(5, 5, 5);
+    // LIGHTING CONFIGURATION FOR BETTER SHADOWS
+    // 1. Ambient Light: Reduced intensity to make shadows darker
+    scene.add(new THREE.AmbientLight(0xffffff, 0.4)); 
+    
+    // 2. Directional Light: Main shadow caster
+    const directionalLight = new THREE.DirectionalLight(0xffffff, 1.0);
+    directionalLight.position.set(5, 10, 5); // Higher angle for better floor projection
+    directionalLight.castShadow = true;
+    directionalLight.shadow.mapSize.width = 2048;
+    directionalLight.shadow.mapSize.height = 2048;
+    directionalLight.shadow.camera.near = 0.5;
+    directionalLight.shadow.camera.far = 20;
+    directionalLight.shadow.camera.left = -5;
+    directionalLight.shadow.camera.right = 5;
+    directionalLight.shadow.camera.top = 5;
+    directionalLight.shadow.camera.bottom = -5;
     scene.add(directionalLight);
+
+    // --- SHADOW RECEIVING PLANE ---
+    const planeGeo = new THREE.PlaneGeometry(40, 40);
+    const planeMat = new THREE.ShadowMaterial({ opacity: 0.5 }); // Darker shadow on floor
+    const shadowPlane = new THREE.Mesh(planeGeo, planeMat);
+    shadowPlane.rotation.x = -Math.PI / 2;
+    shadowPlane.position.z = -0.001; // Just below grid
+    shadowPlane.receiveShadow = true;
+    shadowPlane.name = 'shadow-plane';
+    scene.add(shadowPlane);
     
     gridRef.current = new THREE.GridHelper(20, 20, 0x444444, 0x222222);
     gridRef.current.rotation.x = Math.PI / 2;
@@ -650,15 +674,31 @@ const Viewer: React.FC<ViewerProps> = (props) => {
   useEffect(() => {
     const effectiveShowJointAxes = showJointAxes || isCtrlPressed;
 
+    const scene = sceneRef.current;
+    if (scene) {
+        const shadowPlane = scene.getObjectByName('shadow-plane');
+        if (shadowPlane) shadowPlane.visible = showShadows;
+        
+        scene.traverse(obj => {
+            if (obj instanceof THREE.DirectionalLight) {
+                obj.castShadow = showShadows;
+            }
+        });
+    }
+
     if (robot) {
-        // Wireframe
+        // Wireframe & Shadows
         robot.traverse(c => {
             const mesh = c.getObjectByProperty('isMesh', true) as THREE.Mesh;
-            if (mesh && 
-                mesh.material !== linkHighlightMaterialRef.current && 
-                mesh.material !== jointHighlightMaterialRef.current) {
-              const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
-              materials.forEach(m => { (m as any).wireframe = wireframe; });
+            if (mesh) {
+              mesh.castShadow = showShadows;
+              mesh.receiveShadow = showShadows;
+
+              if (mesh.material !== linkHighlightMaterialRef.current && 
+                  mesh.material !== jointHighlightMaterialRef.current) {
+                const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+                materials.forEach(m => { (m as any).wireframe = wireframe; });
+              }
             }
         });
         // Link Axes
@@ -718,7 +758,7 @@ const Viewer: React.FC<ViewerProps> = (props) => {
             }
         });
     }
-  }, [robot, wireframe, showLinkAxes, showJointAxes, isCtrlPressed]);
+  }, [robot, wireframe, showLinkAxes, showJointAxes, showShadows, isCtrlPressed]);
 
   useEffect(() => {
     if (gridRef.current) gridRef.current.visible = showGrid;
