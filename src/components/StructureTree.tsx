@@ -113,7 +113,7 @@ const JointIcon = ({ x, y }: { x: number, y: number }) => (
 );
 
 const StructureTree: React.FC<StructureTreeProps> = ({ 
-    robot, onClose, onSelect, isCtrlPressed, selectedLinkName, selectedJointName 
+    robot, onSelect, isCtrlPressed, selectedLinkName, selectedJointName 
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [viewState, setViewState] = useState({ x: 0, y: 0, scale: 1 });
@@ -161,7 +161,7 @@ const StructureTree: React.FC<StructureTreeProps> = ({
 
   useEffect(() => {
     if (treeData && containerRef.current) {
-        const totalWidth = calculateLayout(treeData, 0, 50, collapsedIds); 
+        calculateLayout(treeData, 0, 50, collapsedIds); 
         const containerW = containerRef.current.clientWidth;
         setViewState({
             x: (containerW / 2) - treeData.x - (NODE_WIDTH / 2), 

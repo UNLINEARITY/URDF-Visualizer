@@ -294,6 +294,14 @@ canvas {
     z-index: 2000;
     overflow: hidden;
     cursor: grab;
+    user-select: none; /* Prevent text selection globally in tree */
+    -webkit-user-select: none;
+}
+
+.structure-tree-fullscreen text {
+    user-select: none;
+    -webkit-user-select: none;
+    pointer-events: none; /* Already has this, but good to reinforce */
 }
 
 .structure-tree-fullscreen:active {

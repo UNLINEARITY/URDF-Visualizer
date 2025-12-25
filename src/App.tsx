@@ -39,6 +39,7 @@ function App() {
   const [showGrid, setShowGrid] = useState(true);
   const [showLinkAxes, setShowLinkAxes] = useState(false);
   const [showJointAxes, setShowJointAxes] = useState(false);
+  const [showShadows, setShowShadows] = useState(false);
   const [wireframe, setWireframe] = useState(false);
   const [showStructureTree, setShowStructureTree] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -159,12 +160,11 @@ function App() {
                 throw new Error("No static manifest");
             }
         })
-        .catch(err => {
-            console.error("Failed to load sample list:", err);
-        });
-  }, []);
-
-  // Cleanup Blob URLs on unmount or new load
+                    .catch(() => {
+                        // Ignore manifest errors silently or log them
+                    });
+            }, []);
+          // Cleanup Blob URLs on unmount or new load
   useEffect(() => {
       return () => {
           createdBlobUrls.current.forEach(url => URL.revokeObjectURL(url));
@@ -237,7 +237,7 @@ function App() {
       const daeLoader = new ColladaLoader(manager);
       const objLoader = new OBJLoader(manager);
 
-      loader.meshLoader = (path, ext, done) => {
+      (loader as any).meshLoader = (path: string, ext: string, done: (mesh: THREE.Object3D) => void) => {
           // Standard fetching for HTTP/Blob URLs
           // We can't easily use fetch HEAD on blob URLs or mixed content easily without potential CORS or method issues,
           // but Three.js loaders handle basic fetching. 
@@ -291,7 +291,7 @@ function App() {
           }
       };
 
-      loader.loadCollision = false;
+      (loader as any).loadCollision = false;
 
       manager.onLoad = () => setLoading(false);
       manager.onError = (url) => {
@@ -307,9 +307,7 @@ function App() {
         setLoading(false);
       }
 
-      if (!manager.isLoading) {
-        setLoading(false);
-      }
+      setLoading(false);
     }, 10);
 
   }, [urdfContent]); // Removed isStaticMode dependency
@@ -346,9 +344,20 @@ function App() {
 
     window.addEventListener('keydown', handleKeyDown);
     window.addEventListener('keyup', handleKeyUp);
+
+    // Global context menu blocker to prevent browser default behavior and plugin interference
+    const handleGlobalContextMenu = (e: MouseEvent) => {
+        const target = e.target as HTMLElement;
+        if (target.tagName !== 'INPUT' && target.tagName !== 'TEXTAREA') {
+            e.preventDefault();
+        }
+    };
+    window.addEventListener('contextmenu', handleGlobalContextMenu);
+
     return () => {
         window.removeEventListener('keydown', handleKeyDown);
         window.removeEventListener('keyup', handleKeyUp);
+        window.removeEventListener('contextmenu', handleGlobalContextMenu);
     };
   }, []);
 
@@ -477,7 +486,7 @@ function App() {
       return newContent;
   };
 
-  const processAndSetContent = async (filename: string, content: string, isLocal = false) => {
+  const processAndSetContent = async (filename: string, content: string, _isLocal = false) => {
     if (filename.toLowerCase().endsWith('.xacro')) {
       setLoading(true);
       try {
@@ -492,7 +501,7 @@ function App() {
         const flattenedContent = await flattenXacro(content, localFilesRef.current);
         
         const parser = new XacroParser();
-        parser.rospack = { find: (pkg) => `package://${pkg}` };
+        (parser as any).rospack = { find: (pkg: string) => `package://${pkg}` };
         const xml = await parser.parse(flattenedContent);
         
         const serializer = new XMLSerializer();
@@ -604,7 +613,7 @@ function App() {
             .then(content => {
                 setUrdfContent(content);
             })
-            .catch(err => {
+            .catch(() => {
                     setError(`Failed to fetch ${filename}`);
                     setLoading(false);
             });
@@ -638,8 +647,8 @@ function App() {
           // Find entry file (.urdf or .xacro)
           const urdfFiles: File[] = [];
           
-          filesMap.forEach((file, path) => {
-              if (file.name.endsWith('.urdf') || file.name.endsWith('.xacro')) {
+          filesMap.forEach((file) => {
+              if (file.name.toLowerCase().endsWith('.urdf') || file.name.toLowerCase().endsWith('.xacro')) {
                   urdfFiles.push(file);
               }
           });
@@ -707,7 +716,22 @@ function App() {
 
       <div className={`ui-container ${sidebarCollapsed ? 'collapsed' : ''}`}>
         <div className="ui-content">
-            <h2>URDF Visualizer</h2>
+            <div style={{ marginBottom: '1rem', textAlign: 'center' }}>
+                <h2 style={{ margin: '0 0 0.5rem 0' }}>URDF Visualizer</h2>
+                <a 
+                    href="https://github.com/UNLINEARITY/URDF-Visualizer" 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    title="View on GitHub"
+                    style={{ textDecoration: 'none', display: 'inline-block' }}
+                >
+                    <img 
+                        src="https://img.shields.io/github/stars/UNLINEARITY/URDF-Visualizer?style=social" 
+                        alt="GitHub stars" 
+                        style={{ height: '30px' }}
+                    />
+                </a>
+            </div>
             <p>Load a sample or drag & drop a folder.</p>
             <select onChange={handleSampleChange} value={sampleFiles.includes(currentFilePath) ? currentFilePath : ""} className="file-input">
                 <option value="">-- Select a Sample --</option>
@@ -794,6 +818,7 @@ function App() {
           showGrid={showGrid}
           showLinkAxes={showLinkAxes}
           showJointAxes={showJointAxes}
+          showShadows={showShadows}
           wireframe={wireframe}
           onSelectionUpdate={handleSelectionUpdate}
           onJointSelect={handleJointSelect}
@@ -803,13 +828,24 @@ function App() {
 
         {/* Floating Toggle Button for Structure Tree */}
         {robot && (
-            <button 
-                className="structure-tree-toggle"
-                onClick={() => setShowStructureTree(!showStructureTree)}
-                title="Toggle Kinematic Structure Tree"
-            >
-                🌳
-            </button>
+            <>
+                <button 
+                    className="structure-tree-toggle"
+                    style={{ right: '4.5rem', backgroundColor: showShadows ? '#ffca28' : '#444', color: showShadows ? '#333' : '#aaa', borderColor: showShadows ? '#fff' : '#666' }}
+                    onClick={() => setShowShadows(!showShadows)}
+                    title="Toggle Shadows"
+                >
+                    ☀️
+                </button>
+
+                <button 
+                    className="structure-tree-toggle"
+                    onClick={() => setShowStructureTree(!showStructureTree)}
+                    title="Toggle Kinematic Structure Tree"
+                >
+                    🌳
+                </button>
+            </>
         )}
 
         {/* Structure Tree Overlay - Always mounted to preserve state, toggled via CSS */}
