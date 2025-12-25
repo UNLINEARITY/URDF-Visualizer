@@ -69,13 +69,28 @@ This project solves the challenge of visualizing ROS robot models in a browser e
 ### Loading Models / 加载模型
 
 1.  **Sample Library**: Select a pre-configured robot (e.g., Unitree Go2, Fourier G1) from the dropdown menu.
-    **样本库**: 从下拉菜单中选择预配置的机器人（如 Unitree Go2, Fourier G1）。
+    **样本库**: 从下拉菜单中选择预配置的机器人（如 Unitree Go2, G1）。
 2.  **Local Folder Upload**:
     **本地文件夹上传**:
     - Click **Select Project Folder** to upload a root folder containing your robot description (URDFs and Meshes).
       点击 **Select Project Folder** 上传包含机器人描述（URDF 和 Meshes）的根目录。
     - **Recommended Structure**: Ensure the folder mirrors a standard ROS package layout.
       **推荐结构**: 确保文件夹结构符合标准 ROS 功能包布局。
+    - **Supports multiple import formats**:
+      - A single `.urdf` or `.xacro` file;
+      - A directory containing a `.urdf` file along with `.dae` / `.stl` model files, enabling complex geometry and textures;
+      - A project directory composed of multiple `.xacro` configuration files, with `main.xacro` serving as the entry point.
+
+    - 支持多种文件的导入 
+      - 单个 .urdf 或 .xacro 文件；
+      - 包含 .urdf 与 .dae / .stl 等模型文件的文件夹，用于引入复杂几何与纹理；
+      - 由多个 .xacro 配置文件组成、以 main.xacro 作为入口的工程目录。 
+
+    
+
+
+<p align='center'><img src='src\picture\import.gif' width=95%></p>
+
 
 ### Controls / 操作控制
 
@@ -87,6 +102,9 @@ This project solves the challenge of visualizing ROS robot models in a browser e
 | **Select** / 选择 | Left Click | Select a Link to inspect its properties. / 选择连杆以查看属性。 |
 | **Joint** / 关节 | **Ctrl** + Right Click | Select a Joint to view axis and control knob. / 选择关节以查看轴向和控制旋钮。 |
 
+
+<p align='center'><img src='src\picture\note.gif' width=95%></p>
+
 ### Keyboard Shortcuts / 键盘快捷键
 
 - **W**: Toggle World Axes / 显示或隐藏世界坐标系
@@ -95,6 +113,8 @@ This project solves the challenge of visualizing ROS robot models in a browser e
 - **J**: Toggle Joint Axes / 显示或隐藏关节轴指示器
 - **F**: Toggle Wireframe Mode / 切换线框渲染模式
 - **T**: Toggle Kinematic Tree / 显示或隐藏运动学结构树
+
+<p align='center'><img src='src\picture\tree.gif' width=95%></p>
 
 ---
 
