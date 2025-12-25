@@ -344,9 +344,20 @@ function App() {
 
     window.addEventListener('keydown', handleKeyDown);
     window.addEventListener('keyup', handleKeyUp);
+
+    // Global context menu blocker to prevent browser default behavior and plugin interference
+    const handleGlobalContextMenu = (e: MouseEvent) => {
+        const target = e.target as HTMLElement;
+        if (target.tagName !== 'INPUT' && target.tagName !== 'TEXTAREA') {
+            e.preventDefault();
+        }
+    };
+    window.addEventListener('contextmenu', handleGlobalContextMenu);
+
     return () => {
         window.removeEventListener('keydown', handleKeyDown);
         window.removeEventListener('keyup', handleKeyUp);
+        window.removeEventListener('contextmenu', handleGlobalContextMenu);
     };
   }, []);
 

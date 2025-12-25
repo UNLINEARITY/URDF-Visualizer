@@ -184,6 +184,7 @@ const Viewer: React.FC<ViewerProps> = (props) => {
     // User holds Ctrl to pass through StructureTree, but wants standard Rotation (not Pan).
     // OrbitControls reads event.ctrlKey. We capture the event and force ctrlKey to false
     // for the OrbitControls logic, while keeping isCtrlPressedRef true for our own logic.
+    // 1. Capture Phase: Modify event properties (strip Ctrl) BEFORE OrbitControls sees them
     const stripCtrlKey = (e: MouseEvent | PointerEvent) => {
         if (e.ctrlKey) {
             // Force ctrlKey to false so OrbitControls treats it as a standard click (Rotate)
@@ -191,11 +192,30 @@ const Viewer: React.FC<ViewerProps> = (props) => {
             Object.defineProperty(e, 'ctrlKey', { get: () => false });
         }
     };
-    // Attach with capture=true to run before OrbitControls listeners
-    // OrbitControls uses PointerEvents by default in newer Three.js versions
+
+    // 2. Bubble Phase: Stop propagation AFTER OrbitControls has used the event
+    // This prevents the event from reaching document/window where plugins live
+    const stopBubble = (e: MouseEvent | PointerEvent) => {
+        if (e.buttons & 2 || e.button === 2) { // Right click
+            e.stopPropagation();
+        }
+    };
+
+    // Attach Interceptors
     renderer.domElement.addEventListener('pointerdown', stripCtrlKey, { capture: true });
     renderer.domElement.addEventListener('pointermove', stripCtrlKey, { capture: true });
     renderer.domElement.addEventListener('pointerup', stripCtrlKey, { capture: true });
+    
+    // Also attach stopPropagation listeners for right-click dragging
+    // Important: capture=false (default) so it runs at Target/Bubble phase
+    renderer.domElement.addEventListener('mousedown', stopBubble); 
+    renderer.domElement.addEventListener('mousemove', stopBubble);
+    renderer.domElement.addEventListener('mouseup', stopBubble);
+    renderer.domElement.addEventListener('pointerdown', stopBubble); 
+    renderer.domElement.addEventListener('pointermove', stopBubble);
+    renderer.domElement.addEventListener('pointerup', stopBubble);
+
+    // Legacy listeners for strict click logic
     renderer.domElement.addEventListener('mousedown', stripCtrlKey, { capture: true });
     renderer.domElement.addEventListener('mousemove', stripCtrlKey, { capture: true });
     renderer.domElement.addEventListener('mouseup', stripCtrlKey, { capture: true });
