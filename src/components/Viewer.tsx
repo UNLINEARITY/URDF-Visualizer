@@ -55,6 +55,8 @@ const Viewer: React.FC<ViewerProps> = (props) => {
       jointAxis?: THREE.Vector3;
       jointWorldPos?: THREE.Vector3;
       startVector?: THREE.Vector3; // Vector from Center to StartClick
+      previousVector?: THREE.Vector3;
+      currentJointValue?: number;
 
       // Data for 'projection' mode (fallback & prismatic)
       startMouseX?: number;
@@ -268,7 +270,7 @@ const Viewer: React.FC<ViewerProps> = (props) => {
         const x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
         const y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
         
-        raycaster.setFromCamera({ x, y }, camera);
+        raycaster.setFromCamera(new THREE.Vector2(x, y), camera);
         const intersects = raycaster.intersectObject(robotRef.current, true);
 
         // Search through ALL intersects to find the first valid Link
@@ -304,7 +306,7 @@ const Viewer: React.FC<ViewerProps> = (props) => {
         const ndcX = ((event.clientX - rect.left) / rect.width) * 2 - 1;
         const ndcY = -((event.clientY - rect.top) / rect.height) * 2 + 1;
         
-        raycaster.setFromCamera({ x: ndcX, y: ndcY }, camera);
+        raycaster.setFromCamera(new THREE.Vector2(ndcX, ndcY), camera);
         const intersects = raycaster.intersectObject(robotRef.current, true);
 
         // Find the link
@@ -406,12 +408,12 @@ const Viewer: React.FC<ViewerProps> = (props) => {
                  const ndcX = ((event.clientX - rect.left) / rect.width) * 2 - 1;
                  const ndcY = -((event.clientY - rect.top) / rect.height) * 2 + 1;
                  
-                 raycaster.setFromCamera({ x: ndcX, y: ndcY }, camera);
-                 const currentIntersect = new THREE.Vector3();
-                 raycaster.ray.intersectPlane(plane, currentIntersect);
+                 raycaster.setFromCamera(new THREE.Vector2(ndcX, ndcY), camera);
+                 const intersectPoint = new THREE.Vector3();
+                 raycaster.ray.intersectPlane(plane, intersectPoint);
 
-                 if (currentIntersect) {
-                     const currentVector = new THREE.Vector3().subVectors(currentIntersect, jointWorldPos);
+                 if (intersectPoint) {
+                     const currentVector = new THREE.Vector3().subVectors(intersectPoint, jointWorldPos);
                      
                      // Calculate incremental angle from Previous to Current
                      // delta = atan2( cross(prev, curr).dot(axis), prev.dot(curr) )
@@ -656,7 +658,7 @@ const Viewer: React.FC<ViewerProps> = (props) => {
                 mesh.material !== linkHighlightMaterialRef.current && 
                 mesh.material !== jointHighlightMaterialRef.current) {
               const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
-              materials.forEach(m => { m.wireframe = wireframe; });
+              materials.forEach(m => { (m as any).wireframe = wireframe; });
             }
         });
         // Link Axes

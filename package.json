@@ -7,7 +7,9 @@
     "dev": "npm run scan && vite",
     "build": "npm run scan && tsc && vite build",
     "scan": "node scripts/generate_manifest.js",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "predeploy": "npm run build",
+    "deploy": "gh-pages -d dist"
   },
   "dependencies": {
     "@tweenjs/tween.js": "^23.1.2",
@@ -23,6 +25,7 @@
     "@types/react-dom": "^18.2.22",
     "@types/three": "^0.165.0",
     "@vitejs/plugin-react": "^4.2.1",
+    "gh-pages": "^6.3.0",
     "typescript": "^5.2.2",
     "vite": "^5.2.0"
   }
