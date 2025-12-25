@@ -1,61 +1,77 @@
 <?xml version="1.0"?>
-<robot name="two_link_arm">
+<robot name="simple_robot">
 
-  <!-- base -->
+  <!-- Base Link -->
   <link name="base_link">
     <visual>
-      <origin xyz="0 0 0.05"/>
       <geometry>
-        <box size="0.3 0.3 0.1"/>
+        <box size="0.6 0.6 0.2" />
       </geometry>
-      <material name="gray">
-        <color rgba="0.6 0.6 0.6 1"/>
+      <material name="grey">
+        <color rgba="0.5 0.5 0.5 1"/>
       </material>
     </visual>
+    <collision>
+      <geometry>
+        <box size="0.6 0.6 0.2" />
+      </geometry>
+    </collision>
   </link>
 
-  <!-- link1 -->
-  <link name="link1">
+  <!-- Arm Link -->
+  <link name="arm_link_1">
     <visual>
-      <origin xyz="0 0 0.2"/>
       <geometry>
-        <box size="0.08 0.08 0.4"/>
+        <cylinder radius="0.08" length="0.8" />
       </geometry>
+      <origin xyz="0 0 0.4" rpy="0 0 0"/>
       <material name="blue">
-        <color rgba="0.2 0.4 0.9 1"/>
+        <color rgba="0.1 0.1 0.8 1"/>
       </material>
     </visual>
-  </link>
-
-  <!-- joint1 -->
-  <joint name="shoulder_joint" type="revolute">
-    <parent link="base_link"/>
-    <child link="link1"/>
-    <origin xyz="0 0 0.1"/>
-    <axis xyz="0 0 1"/>
-    <limit lower="-3.14" upper="3.14" effort="1" velocity="1"/>
-  </joint>
-
-  <!-- link2 -->
-  <link name="link2">
-    <visual>
-      <origin xyz="0 0 0.2"/>
+    <collision>
       <geometry>
-        <box size="0.06 0.06 0.4"/>
+        <cylinder radius="0.08" length="0.8" />
       </geometry>
-      <material name="green">
-        <color rgba="0.2 0.8 0.4 1"/>
-      </material>
-    </visual>
+      <origin xyz="0 0 0.4" rpy="0 0 0"/>
+    </collision>
   </link>
 
-  <!-- joint2 -->
-  <joint name="elbow_joint" type="revolute">
-    <parent link="link1"/>
-    <child link="link2"/>
-    <origin xyz="0 0 0.4"/>
-    <axis xyz="0 1 0"/>
-    <limit lower="-1.57" upper="1.57" effort="1" velocity="1"/>
+  <!-- Joint between Base and Arm -->
+  <joint name="base_to_arm_1" type="revolute">
+    <parent link="base_link"/>
+    <child link="arm_link_1"/>
+    <origin xyz="0 0 0.1" rpy="0 0 0"/>
+    <axis xyz="0 0 1"/>
+    <limit lower="-3.1415" upper="3.1415" effort="100" velocity="100"/>
   </joint>
-
+  
+  <!-- Arm Link 2 -->
+  <link name="arm_link_2">
+    <visual>
+      <geometry>
+        <cylinder radius="0.06" length="0.6" />
+      </geometry>
+      <origin xyz="0 0 0.3" rpy="0 0 0"/>
+      <material name="green">
+        <color rgba="0.1 0.8 0.1 1"/>
+      </material>
+    </visual>
+    <collision>
+      <geometry>
+        <cylinder radius="0.06" length="0.6" />
+      </geometry>
+      <origin xyz="0 0 0.3" rpy="0 0 0"/>
+    </collision>
+  </link>
+  
+  <!-- Joint between Arm 1 and 2 -->
+  <joint name="arm_1_to_arm_2" type="revolute">
+      <parent link="arm_link_1"/>
+      <child link="arm_link_2"/>
+      <origin xyz="0 0 0.8" rpy="0 1.5707 0"/>
+      <axis xyz="0 1 0"/>
+      <limit lower="-1.5707" upper="1.5707" effort="100" velocity="100"/>
+  </joint>
+  
 </robot>
