@@ -705,17 +705,17 @@ function App() {
 
       <div className={`ui-container ${sidebarCollapsed ? 'collapsed' : ''}`}>
         <div className="ui-content">
-            <div style={{ marginBottom: '1rem' , textAlign: 'center' }}>
+            <div style={{ marginBottom: '1rem', textAlign: 'center' }}>
                 <h2 style={{ margin: '0 0 0.5rem 0' }}>URDF Visualizer</h2>
                 <a 
-                    href="https://github.com/UNLINEARITY/URDF" 
+                    href="https://github.com/UNLINEARITY/URDF-Visualizer" 
                     target="_blank" 
                     rel="noopener noreferrer"
                     title="View on GitHub"
                     style={{ textDecoration: 'none', display: 'inline-block' }}
                 >
                     <img 
-                        src="https://img.shields.io/github/stars/UNLINEARITY/URDF?style=social" 
+                        src="https://img.shields.io/github/stars/UNLINEARITY/URDF-Visualizer?style=social" 
                         alt="GitHub stars" 
                         style={{ height: '30px' }}
                     />

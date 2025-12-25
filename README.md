@@ -2,16 +2,16 @@
 
 
   <div  align="center" >
-    <a href="https://github.com/UNLINEARITY/URDF/stargazers">
-      <img src="https://img.shields.io/github/stars/UNLINEARITY/URDF.svg" alt="Stars">
+    <a href="https://github.com/UNLINEARITY/URDF-Visualizer/stargazers">
+      <img src="https://img.shields.io/github/stars/UNLINEARITY/URDF-Visualizer.svg" alt="Stars">
     </a>
-    <a href="https://github.com/UNLINEARITY/URDF/network/members">
-      <img src="https://img.shields.io/github/forks/UNLINEARITY/URDF.svg" alt="Forks">
+    <a href="https://github.com/UNLINEARITY/URDF-Visualizer/network/members">
+      <img src="https://img.shields.io/github/forks/UNLINEARITY/URDF-Visualizer.svg" alt="Forks">
     </a>
-    <a href="https://github.com/UNLINEARITY/URDF/issues">
-      <img src="https://img.shields.io/github/issues/UNLINEARITY/URDF.svg" alt="Issues">
-    </a> <a href="https://github.com/UNLINEARITY/URDF/pulls">
-      <img src="https://img.shields.io/github/issues-pr/UNLINEARITY/URDF.svg" alt="Pull Requests">
+    <a href="https://github.com/UNLINEARITY/URDF-Visualizer/issues">
+      <img src="https://img.shields.io/github/issues/UNLINEARITY/URDF-Visualizer.svg" alt="Issues">
+    </a> <a href="https://github.com/UNLINEARITY/URDF-Visualizer/pulls">
+      <img src="https://img.shields.io/github/issues-pr/UNLINEARITY/URDF-Visualizer.svg" alt="Pull Requests">
     </a>
  </div>
 
@@ -20,7 +20,7 @@ A professional, web-based visualization tool for **URDF** (Unified Robot Descrip
 
 一个基于 Web 的专业 **URDF** 和 **Xacro** 机器人模型可视化工具。基于现代 Web 技术栈构建，允许在无需本地 ROS 环境的情况下，在客户端直接解析并渲染复杂的机器人描述文件。
 
-**Live Demo / 在线演示:** [https://unlinearity.github.io/URDF/](https://unlinearity.github.io/URDF/)
+**Live Demo / 在线演示:** [https://unlinearity.github.io/URDF-Visualizer/](https://unlinearity.github.io/URDF-Visualizer/)
 
 ---
 
@@ -110,8 +110,8 @@ Clone the repository and install dependencies:
 克隆仓库并安装依赖：
 
 ```bash
-git clone https://github.com/UNLINEARITY/URDF.git
-cd URDF
+git clone https://github.com/UNLINEARITY/URDF-Visualizer.git
+cd URDF-Visualizer
 npm install
 ```
 
