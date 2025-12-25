@@ -121,12 +121,42 @@ const Viewer: React.FC<ViewerProps> = (props) => {
       }
   }, [selectedJoint]);
 
-  // Sync internal link selection with prop (e.g. when closed from UI)
+  // Sync internal link selection with prop
   useEffect(() => {
-      if (selectedLinkName === null && selectedLinkRef.current !== null) {
-          unhighlightLink();
+      // 1. If we are already selecting this link, do nothing
+      if (selectedLinkRef.current && selectedLinkRef.current.name === selectedLinkName) {
+          return;
       }
-  }, [selectedLinkName]);
+
+      // 2. Unhighlight current
+      unhighlightLink();
+
+      // 3. Highlight new if exists
+      if (selectedLinkName && robot) {
+          let foundLink: URDFLink | null = null;
+          
+          // Breadth-first or traverse to find link by name
+          robot.traverse(c => {
+              if ((c as any).isURDFLink && c.name === selectedLinkName) {
+                  foundLink = c as URDFLink;
+              }
+          });
+
+          if (foundLink) {
+              const link = foundLink as URDFLink;
+              const mesh = link.getObjectByProperty('isMesh', true) as THREE.Mesh;
+              
+              if (mesh) {
+                  selectedLinkRef.current = link;
+                  originalLinkMaterialRef.current = mesh.material;
+                  mesh.material = linkHighlightMaterialRef.current;
+                  
+                  // We don't need to notify parent (onSelectionUpdate) because 
+                  // the parent is the one telling us to select it.
+              }
+          }
+      }
+  }, [selectedLinkName, robot]);
   
   // 1. Scene Initialization
   useEffect(() => {
@@ -146,6 +176,26 @@ const Viewer: React.FC<ViewerProps> = (props) => {
     renderer.shadowMap.enabled = true;
     mountRef.current.appendChild(renderer.domElement);
     rendererRef.current = renderer;
+
+    // --- EVENT INTERCEPTOR FOR CTRL+CLICK ROTATION ---
+    // User holds Ctrl to pass through StructureTree, but wants standard Rotation (not Pan).
+    // OrbitControls reads event.ctrlKey. We capture the event and force ctrlKey to false
+    // for the OrbitControls logic, while keeping isCtrlPressedRef true for our own logic.
+    const stripCtrlKey = (e: MouseEvent | PointerEvent) => {
+        if (e.ctrlKey) {
+            // Force ctrlKey to false so OrbitControls treats it as a standard click (Rotate)
+            // instead of a Ctrl+Click (Pan)
+            Object.defineProperty(e, 'ctrlKey', { get: () => false });
+        }
+    };
+    // Attach with capture=true to run before OrbitControls listeners
+    // OrbitControls uses PointerEvents by default in newer Three.js versions
+    renderer.domElement.addEventListener('pointerdown', stripCtrlKey, { capture: true });
+    renderer.domElement.addEventListener('pointermove', stripCtrlKey, { capture: true });
+    renderer.domElement.addEventListener('pointerup', stripCtrlKey, { capture: true });
+    renderer.domElement.addEventListener('mousedown', stripCtrlKey, { capture: true });
+    renderer.domElement.addEventListener('mousemove', stripCtrlKey, { capture: true });
+    renderer.domElement.addEventListener('mouseup', stripCtrlKey, { capture: true });
 
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
@@ -192,12 +242,22 @@ const Viewer: React.FC<ViewerProps> = (props) => {
     animate();
 
     const handleResize = () => {
-      if (!mountRef.current || !camera || !renderer) return;
-      camera.aspect = mountRef.current.clientWidth / mountRef.current.clientHeight;
-      camera.updateProjectionMatrix();
-      renderer.setSize(mountRef.current.clientWidth, mountRef.current.clientHeight);
+      if (!mountRef.current || !cameraRef.current || !rendererRef.current) return;
+      const width = mountRef.current.clientWidth;
+      const height = mountRef.current.clientHeight;
+      cameraRef.current.aspect = width / height;
+      cameraRef.current.updateProjectionMatrix();
+      rendererRef.current.setSize(width, height);
+      
+      // Force immediate re-render to prevent flickering/black frames during resize
+      if (sceneRef.current && cameraRef.current) {
+          rendererRef.current.render(sceneRef.current, cameraRef.current);
+      }
     };
-    window.addEventListener('resize', handleResize);
+
+    // Use ResizeObserver to detect container size changes (e.g. sidebar toggle)
+    const resizeObserver = new ResizeObserver(() => handleResize());
+    resizeObserver.observe(mountRef.current);
 
     // --- INTERACTION HANDLERS ---
 
@@ -551,7 +611,7 @@ const Viewer: React.FC<ViewerProps> = (props) => {
     
     return () => {
       cancelAnimationFrame(animationFrameId);
-      window.removeEventListener('resize', handleResize);
+      resizeObserver.disconnect();
       if (mountRef.current) {
         mountRef.current.removeEventListener('mousedown', handleMouseDown);
         mountRef.current.removeEventListener('mousemove', handleMouseMoveHover);

@@ -34,26 +34,115 @@ canvas {
   display: flex;
   width: 100%;
   height: 100%;
+  position: relative; /* For absolute positioning of toggle button */
 }
 
 .viewer-container {
   flex-grow: 1;
   position: relative;
+  overflow: hidden;
+  transition: width 0.3s ease; /* Smooth resize */
+  background-color: #263238; /* Match Three.js scene background to prevent flicker */
 }
 
 .ui-container {
   width: 350px;
   flex-shrink: 0;
   background-color: #1a1a1a;
-  padding: 1rem;
   box-sizing: border-box;
-  overflow-y: auto;
   text-align: left;
+  transition: width 0.3s ease, padding 0.3s ease;
+  overflow: hidden; /* Hide content when collapsed */
+  position: relative;
+}
+
+.ui-container.collapsed {
+  width: 0;
+  padding: 0;
+}
+
+.ui-content {
+    width: 350px; /* Fixed width for inner content to prevent reflow during transition */
+    padding: 1rem;
+    box-sizing: border-box;
+    height: 100%;
+    overflow-y: auto;
+}
+
+/* Sidebar Toggle Button */
+.sidebar-toggle {
+    position: absolute;
+    top: 50%;
+    left: 350px; /* Aligned with sidebar width */
+    transform: translateY(-50%);
+    width: 24px;
+    height: 60px;
+    background-color: #333;
+    border: 1px solid #444;
+    border-left: none;
+    border-top-right-radius: 8px;
+    border-bottom-right-radius: 8px;
+    color: #888;
+    cursor: pointer;
+    z-index: 2200; /* Ensure above Structure Tree (2000) */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    transition: left 0.3s ease, background-color 0.2s;
+    font-size: 0.8rem;
+}
+
+.sidebar-toggle:hover {
+    background-color: #444;
+    color: #fff;
+}
+
+.sidebar-toggle.collapsed {
+    left: 0; /* Move to left edge when collapsed */
 }
 
 .file-input {
     display: block;
-    margin-bottom: 2rem;
+    margin-bottom: 0.8rem;
+    width: 100%;
+}
+
+.file-input-hidden {
+    display: none;
+}
+
+.custom-file-upload {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 10px 15px;
+    cursor: pointer;
+    background-color: #333;
+    border: 1px solid #444;
+    border-radius: 4px;
+    color: #fff;
+    font-size: 0.9rem;
+    transition: background-color 0.2s, border-color 0.2s;
+    margin-bottom: 0.8rem;
+}
+
+.custom-file-upload:hover {
+    background-color: #444;
+    border-color: #666;
+}
+
+.custom-file-upload i {
+    margin-right: 8px;
+    font-style: normal;
+}
+
+.btn-file {
+    border-left: 4px solid #2196f3; /* Blue for file */
+}
+
+.btn-folder {
+    border-left: 4px solid #ff9800; /* Orange for folder */
 }
 
 .controls-container h3 {
@@ -167,4 +256,225 @@ canvas {
   border: 4px dashed #666;
   border-radius: 10px;
   background-color: rgba(40, 40, 40, 0.8);
+}
+
+/* Structure Tree Overlay */
+.structure-tree-toggle {
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background-color: #2196f3;
+    border: 2px solid white;
+    color: white;
+    font-size: 1.5rem;
+    cursor: pointer;
+    z-index: 2100; /* Higher than overlay (2000) and details (2010) */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+    transition: transform 0.2s, background-color 0.2s;
+}
+
+.structure-tree-toggle:hover {
+    background-color: #42a5f5;
+    transform: scale(1.1);
+}
+
+.structure-tree-fullscreen {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: transparent; 
+    z-index: 2000;
+    overflow: hidden;
+    cursor: grab;
+}
+
+.structure-tree-fullscreen:active {
+    cursor: grabbing;
+}
+
+.structure-tree-ui-layer {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+}
+
+/* Vertical Header Panel */
+.structure-tree-vertical-header {
+    position: absolute;
+    top: 20px;
+    left: 20px;
+    background: rgba(0, 0, 0, 0.85);
+    padding: 12px 16px;
+    border-radius: 8px;
+    border: 1px solid #444;
+    pointer-events: auto;
+    color: #eee;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+    backdrop-filter: blur(4px);
+    box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+    min-width: 120px;
+}
+
+.structure-tree-vertical-header h3 {
+    margin: 0;
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: #fff;
+    border-bottom: 1px solid #555;
+    padding-bottom: 8px;
+    width: 100%;
+    text-align: left;
+}
+
+.v-legend {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    width: 100%;
+}
+
+.v-legend-item {
+    display: flex;
+    flex-direction: row; /* Horizontal text */
+    align-items: center;
+    font-size: 0.85rem;
+    gap: 10px;
+    color: #ccc;
+}
+
+.v-dot {
+    width: 14px;
+    height: 14px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Joint = Circle */
+.v-dot.joint { 
+    background: transparent; 
+    border: 2px solid #66bb6a; 
+    border-radius: 50%; 
+    position: relative;
+}
+.v-dot.joint::after {
+    content: '';
+    width: 6px;
+    height: 6px;
+    background: #66bb6a;
+    border-radius: 50%;
+}
+
+/* Link = Square/Rect */
+.v-dot.link { 
+    background: transparent; 
+    border: 2px solid #42a5f5; 
+    border-radius: 3px; 
+    position: relative;
+}
+.v-dot.link::after {
+    content: '';
+    width: 1px;
+    height: 8px;
+    background: #42a5f5;
+    transform: rotate(45deg); /* stylized structure look */
+}
+.v-dot.link::before {
+    content: '';
+    width: 8px;
+    height: 1px;
+    background: #42a5f5;
+    position: absolute;
+    transform: rotate(45deg);
+}
+
+.v-hint {
+    font-size: 0.75rem;
+    color: #888;
+    margin-top: 5px;
+    padding-top: 8px;
+    border-top: 1px solid #444;
+    width: 100%;
+}
+
+/* Side Detail Panel (Bottom Right) */
+.node-details-side-panel {
+    position: absolute;
+    bottom: 20px;
+    right: 20px;
+    width: 220px;
+    background-color: rgba(20, 20, 20, 0.85);
+    border: 1px solid #555;
+    border-radius: 10px;
+    padding: 15px;
+    pointer-events: none;
+    box-shadow: 0 5px 20px rgba(0,0,0,0.5);
+    color: #eee;
+    z-index: 2010;
+    backdrop-filter: blur(5px);
+}
+
+.node-details-side-panel h4 {
+    margin: 0 0 10px 0;
+    font-size: 1rem;
+    color: #66bb6a;
+    border-bottom: 1px solid #444;
+    padding-bottom: 5px;
+}
+
+.detail-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.85rem;
+    margin-bottom: 6px;
+}
+
+.limit-box {
+    margin-top: 10px;
+    padding: 8px;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 6px;
+}
+
+.limit-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.8rem;
+    color: #aaa;
+}
+
+.tag {
+    background-color: #333;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-family: monospace;
+    font-size: 0.8rem;
+}
+
+/* SVG Interactions */
+.tree-node-visual {
+    transition: transform 0.1s;
+}
+
+.tree-node-visual:hover rect {
+    filter: brightness(1.2);
+}
+
+.tree-node-visual.selected rect {
+    filter: brightness(1.3);
 }

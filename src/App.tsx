@@ -9,6 +9,7 @@ import Viewer from './components/Viewer';
 import JointController from './components/JointController';
 import DisplayOptions from './components/DisplayOptions';
 import InfoPopup from './components/InfoPopup';
+import StructureTree from './components/StructureTree';
 import { getAllFiles, findFileInMap } from './utils/fileUtils';
 
 interface LinkSelection {
@@ -39,9 +40,12 @@ function App() {
   const [showLinkAxes, setShowLinkAxes] = useState(false);
   const [showJointAxes, setShowJointAxes] = useState(false);
   const [wireframe, setWireframe] = useState(false);
+  const [showStructureTree, setShowStructureTree] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   
   const [isCtrlPressed, setIsCtrlPressed] = useState(false);
   const [sampleFiles, setSampleFiles] = useState<string[]>([]);
+  // const [isStaticMode, setIsStaticMode] = useState(false); // Removed
   
   // -- GLOBAL JOINT STATE --
   const [jointValues, setJointValues] = useState<Record<string, number>>({});
@@ -83,7 +87,7 @@ function App() {
   }, [robot]);
   
   // Handles Link Selection & Updates (Called by Viewer on click AND in animate loop)
-  const handleSelectionUpdate = useCallback((name: string | null, matrix: THREE.Matrix4 | null, parentMatrix: THREE.Matrix4 | null) => {
+  const handleSelectionUpdate = useCallback((name: string | null, matrix: THREE.Matrix4 | null, parentMatrix: THREE.Matrix4 | null, visible: boolean = true) => {
       if (!name) {
           setLinkSelection(prev => ({...prev, visible: false, name: null, matrix: null, parentMatrix: null}));
           return;
@@ -98,7 +102,7 @@ function App() {
             name: name,
             matrix: matrix,
             parentMatrix: parentMatrix,
-            visible: true,
+            visible: visible, // Use the passed visibility
             position: prev.visible ? prev.position : position,
           };
       });
@@ -138,25 +142,26 @@ function App() {
     lastJointPosRef.current = pos;
   };
 
-  const closeLinkPopup = () => setLinkSelection(prev => ({ ...prev, visible: false }));
-  const closeJointPopup = () => setJointSelection(prev => ({ ...prev, visible: false }));
+  const closeLinkPopup = () => setLinkSelection(prev => ({ ...prev, visible: false, name: null }));
+  const closeJointPopup = () => setJointSelection(prev => ({ ...prev, visible: false, joint: null }));
 
 
-  // Effect to fetch the list of sample files from the backend
+  // Effect to fetch the list of sample files from the static manifest
   useEffect(() => {
-    fetch('/api/samples')
-      .then(res => {
-        if (!res.ok) {
-          throw new Error('Network response was not ok');
-        }
-        return res.json();
-      })
-      .then(files => {
-        setSampleFiles(files);
-      })
-      .catch(err => {
-        console.error("Failed to fetch sample files:", err);
-      });
+    fetch('files.json')
+        .then(res => {
+            if (res.ok && res.headers.get('content-type')?.includes('json')) {
+                return res.json().then(files => {
+                    console.log("Loaded static manifest", files);
+                    setSampleFiles(files);
+                });
+            } else {
+                throw new Error("No static manifest");
+            }
+        })
+        .catch(err => {
+            console.error("Failed to load sample list:", err);
+        });
   }, []);
 
   // Cleanup Blob URLs on unmount or new load
@@ -190,6 +195,7 @@ function App() {
       const pathParts = currentFilePath.split('/');
       const modelDir = pathParts.slice(0, -1).join('/');
       const modelPackageRoot = pathParts.length > 1 ? pathParts[0] : '';
+      const baseUrl = import.meta.env.BASE_URL.endsWith('/') ? import.meta.env.BASE_URL : import.meta.env.BASE_URL + '/';
 
       // Setup URL Modifier to handle package:// and URDF-relative paths
       manager.setURLModifier((url) => {
@@ -205,7 +211,7 @@ function App() {
 
           // 1. Handle ROS package:// protocol
           if (url.startsWith('package://')) {
-              return url.replace('package://', '/api/assets/');
+               return baseUrl + url.replace('package://', '');
           }
           
           // 2. Handle relative paths
@@ -214,11 +220,11 @@ function App() {
               // and the path doesn't already have '../'
               if (modelDir.endsWith('/urdf') && !url.startsWith('..')) {
                   // Try to look in the package root instead of the urdf folder
-                  return `/api/assets/${modelPackageRoot}/${url}`;
+                  return `${baseUrl}${modelPackageRoot}/${url}`;
               }
 
               const fullAssetPath = modelDir ? `${modelDir}/${url}` : url;
-              return `/api/assets/${fullAssetPath}`;
+              return `${baseUrl}${fullAssetPath}`;
           }
           
           return url;
@@ -306,7 +312,7 @@ function App() {
       }
     }, 10);
 
-  }, [urdfContent]);
+  }, [urdfContent]); // Removed isStaticMode dependency
 
 
   // Keyboard shortcuts effect
@@ -323,9 +329,11 @@ function App() {
         case 'l': setShowLinkAxes(v => !v); break;
         case 'j': setShowJointAxes(v => !v); break;
         case 'f': setWireframe(v => !v); break;
+        case 't': setShowStructureTree(v => !v); break;
         case 'escape': 
             closeLinkPopup(); 
             closeJointPopup();
+            setShowStructureTree(false);
             break;
       }
     };
@@ -343,6 +351,75 @@ function App() {
         window.removeEventListener('keyup', handleKeyUp);
     };
   }, []);
+
+  const resolveUrlPath = (base: string, relative: string) => {
+      if (relative.startsWith('http') || relative.startsWith('/')) return relative;
+      const stack = base.split('/');
+      stack.pop(); // Remove filename
+      const parts = relative.split('/');
+      for (const part of parts) {
+          if (part === '.') continue;
+          if (part === '..') stack.pop();
+          else stack.push(part);
+      }
+      return stack.join('/');
+  };
+
+  const fetchAndFlattenXacro = async (url: string): Promise<string> => {
+      console.log(`[Xacro] Fetching: ${url}`);
+      const response = await fetch(url);
+      if (!response.ok) throw new Error(`Failed to fetch ${url}`);
+      const content = await response.text();
+      
+      // Handle spaces around =
+      const includeRegex = /<xacro:include\s+filename\s*=\s*['"]([^'"]+)['"]\s*\/?>/g;
+      let match;
+      let newContent = content;
+      const matches: { full: string, path: string, index: number }[] = [];
+      
+      while ((match = includeRegex.exec(content)) !== null) {
+          matches.push({ full: match[0], path: match[1], index: match.index });
+      }
+
+      const baseUrl = import.meta.env.BASE_URL.endsWith('/') ? import.meta.env.BASE_URL : import.meta.env.BASE_URL + '/';
+
+      for (let i = matches.length - 1; i >= 0; i--) {
+          const { full, path: includePath } = matches[i];
+          let targetUrl = '';
+
+          // Handle $(find pkg)
+          let cleanPath = includePath.replace(/\$\([a-z_]+\s+([\w_]+)\)/g, 'package://$1'); // $(find pkg) -> package://pkg
+          
+          // Remove leading slash if present to avoid double slash with baseUrl
+          if (cleanPath.startsWith('/')) cleanPath = cleanPath.substring(1);
+
+          if (cleanPath.startsWith('package://')) {
+               const pkgPath = cleanPath.replace('package://', '');
+               targetUrl = baseUrl + pkgPath;
+          } else {
+               targetUrl = resolveUrlPath(url, cleanPath);
+          }
+          
+          // Fix double slashes just in case (except http://)
+          targetUrl = targetUrl.replace(/([^:])\/\//g, '$1/');
+
+          try {
+              let includedContent = await fetchAndFlattenXacro(targetUrl);
+               // Clean content
+              includedContent = includedContent.replace(/<\?xml.*?\?>/g, '');
+              // Remove <robot> tag and anything following the closing tag (like comments)
+              includedContent = includedContent.replace(/<robot\b[^>]*>/, '');
+              includedContent = includedContent.replace(/<\/robot>[\s\S]*$/, '');
+              
+              const before = newContent.substring(0, matches[i].index);
+              const after = newContent.substring(matches[i].index + full.length);
+              newContent = before + includedContent + after;
+          } catch (e) {
+              console.warn(`Failed to include ${targetUrl}`, e);
+          }
+      }
+      return newContent;
+  };
 
   const flattenXacro = async (content: string, filesMap: Map<string, File>): Promise<string> => {
       const includeRegex = /<xacro:include\s+filename=['"]([^'"]+)['"]\s*\/?>/g;
@@ -406,27 +483,22 @@ function App() {
       try {
         let urdfString = "";
         
-        if (isLocal) {
-            // Manually flatten includes to bypass parser loader issues
-            const flattenedContent = await flattenXacro(content, localFilesRef.current);
-            
-            const parser = new XacroParser();
-            const xml = await parser.parse(flattenedContent);
-            
-            const serializer = new XMLSerializer();
-            urdfString = serializer.serializeToString(xml);
-        } else {
-            // Server-side parsing (supports includes via backend)
-            const response = await fetch(`/api/xacro-to-urdf?file=${encodeURIComponent(filename)}`);
-            if (!response.ok) throw new Error(await response.text());
-            const assembledXacro = await response.text();
-            
-            const parser = new XacroParser();
-            const xml = await parser.parse(assembledXacro);
-            const serializer = new XMLSerializer();
-            urdfString = serializer.serializeToString(xml);
-        }
+        // If it's a local file (Drag & Drop) or a pre-flattened static file
+        // We use the local parser logic. 
+        // Note: For Drag & Drop, 'localFilesRef' has files. 
+        // For Static Samples, 'localFilesRef' is empty, but 'content' is already flattened by fetchAndFlattenXacro.
+        // So flattenXacro(content, emptyMap) -> returns content unchanged.
         
+        const flattenedContent = await flattenXacro(content, localFilesRef.current);
+        
+        const parser = new XacroParser();
+        parser.rospack = { find: (pkg) => `package://${pkg}` };
+        const xml = await parser.parse(flattenedContent);
+        
+        const serializer = new XMLSerializer();
+        urdfString = serializer.serializeToString(xml);
+        
+        console.log("[App] Generated URDF (preview):", urdfString.slice(0, 500));
         setUrdfContent(urdfString);
       } catch (err) {
         console.error("Xacro parsing error:", err);
@@ -457,6 +529,50 @@ function App() {
     }
   }, []);
 
+  const handleFolderChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
+      const files = event.target.files;
+      if (!files || files.length === 0) return;
+
+      setLoading(true);
+      setError(null);
+
+      // Construct map from FileList
+      const filesMap = new Map<string, File>();
+      Array.from(files).forEach(file => {
+          // webkitRelativePath is like "folder/sub/file.ext"
+          filesMap.set(file.webkitRelativePath, file);
+      });
+      
+      localFilesRef.current = filesMap;
+      
+      const urdfFiles: File[] = [];
+      filesMap.forEach((file) => {
+          if (file.name.endsWith('.urdf') || file.name.endsWith('.xacro')) {
+              urdfFiles.push(file);
+          }
+      });
+
+      if (urdfFiles.length === 0) {
+          setError("No .urdf or .xacro file found in the selected folder.");
+          setLoading(false);
+          return;
+      }
+
+      let entryFile = urdfFiles.find(f => f.name.toLowerCase().includes('main'));
+      if (!entryFile) entryFile = urdfFiles.find(f => f.name.toLowerCase().includes('robot'));
+      if (!entryFile) entryFile = urdfFiles[0];
+
+      if (entryFile) {
+          const reader = new FileReader();
+          reader.onload = (ev) => {
+              const content = ev.target?.result as string;
+              setCurrentFilePath(entryFile!.name);
+              processAndSetContent(entryFile!.name, content, true);
+          };
+          reader.readAsText(entryFile);
+      }
+  }, []);
+
   const handleSampleChange = useCallback((event: React.ChangeEvent<HTMLSelectElement>) => {
     const filename = event.target.value;
     if (!filename) {
@@ -468,22 +584,31 @@ function App() {
     localFilesRef.current.clear();
 
     setLoading(true);
-    fetch(filename)
-      .then(res => {
-        if (!res.ok) {
-          throw new Error(`HTTP error! status: ${res.status}`);
-        }
-        return res.text();
-      })
-      .then(content => {
-        setCurrentFilePath(filename);
-        processAndSetContent(filename, content, false);
-      })
-      .catch(err => {
-        console.error(`Failed to fetch ${filename}:`, err);
-        setError(`Failed to fetch ${filename}.`);
-        setLoading(false);
-      });
+    setCurrentFilePath(filename);
+
+    if (filename.endsWith('.xacro')) {
+            fetchAndFlattenXacro(filename)
+            .then(content => {
+                // Pass as 'local' (true) to skip backend call, but we already flattened it,
+                // so processAndSetContent will essentially just parse the URDF string.
+                processAndSetContent(filename, content, true);
+            })
+            .catch(err => {
+                console.error(err);
+                setError(`Failed to load Xacro: ${err.message}`);
+                setLoading(false);
+            });
+    } else {
+            fetch(filename)
+            .then(res => res.text())
+            .then(content => {
+                setUrdfContent(content);
+            })
+            .catch(err => {
+                    setError(`Failed to fetch ${filename}`);
+                    setLoading(false);
+            });
+    }
   }, []);
 
   // --- Drag & Drop Handlers ---
@@ -570,41 +695,73 @@ function App() {
               <h3>Drop URDF/Xacro Folder Here</h3>
           </div>
       )}
-      <div className="ui-container">
-        <h2>URDF Visualizer</h2>
-        <p>Load a sample or drag & drop a folder.</p>
-        <select onChange={handleSampleChange} value={sampleFiles.includes(currentFilePath) ? currentFilePath : ""} className="file-input">
-            <option value="">-- Select a Sample --</option>
-            {sampleFiles.map(f => <option key={f} value={f}>{f}</option>)}
-        </select>
-        <input type="file" accept=".urdf,.xacro" onChange={handleFileChange} className="file-input" />
-        <hr />
-        <DisplayOptions
-            showWorldAxes={showWorldAxes} setShowWorldAxes={setShowWorldAxes}
-            showGrid={showGrid} setShowGrid={setShowGrid}
-            showLinkAxes={showLinkAxes} setShowLinkAxes={setShowLinkAxes}
-            showJointAxes={showJointAxes} setShowJointAxes={setShowJointAxes}
-            wireframe={wireframe} setWireframe={setWireframe}
-        />
-        <hr />
-        {robot && (
-            <JointController 
-                robot={robot} 
-                jointValues={jointValues} 
-                onJointChange={handleJointChange} 
+      
+      {/* Sidebar Toggle Button */}
+      <button 
+          className={`sidebar-toggle ${sidebarCollapsed ? 'collapsed' : ''}`}
+          onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+          title={sidebarCollapsed ? "Expand Sidebar" : "Collapse Sidebar"}
+      >
+          {sidebarCollapsed ? "▶" : "◀"}
+      </button>
+
+      <div className={`ui-container ${sidebarCollapsed ? 'collapsed' : ''}`}>
+        <div className="ui-content">
+            <h2>URDF Visualizer</h2>
+            <p>Load a sample or drag & drop a folder.</p>
+            <select onChange={handleSampleChange} value={sampleFiles.includes(currentFilePath) ? currentFilePath : ""} className="file-input">
+                <option value="">-- Select a Sample --</option>
+                {sampleFiles.map(f => <option key={f} value={f}>{f}</option>)}
+            </select>
+            
+            <label htmlFor="file-upload" className="custom-file-upload btn-file">
+                <i>📄</i> Select URDF/Xacro File
+            </label>
+            <input 
+                id="file-upload"
+                type="file" 
+                accept=".urdf,.xacro" 
+                onChange={handleFileChange} 
+                className="file-input-hidden" 
             />
-        )}
-        {error && <div style={{ color: 'red' }}>{error}</div>}
+
+            <label htmlFor="folder-upload" className="custom-file-upload btn-folder">
+                <i>📁</i> Select Project Folder
+            </label>
+            <input 
+                id="folder-upload"
+                type="file" 
+                {...{ webkitdirectory: "", directory: "" } as any} 
+                onChange={handleFolderChange} 
+                className="file-input-hidden" 
+            />
+            <hr />
+            <DisplayOptions
+                showWorldAxes={showWorldAxes} setShowWorldAxes={setShowWorldAxes}
+                showGrid={showGrid} setShowGrid={setShowGrid}
+                showLinkAxes={showLinkAxes} setShowLinkAxes={setShowLinkAxes}
+                showJointAxes={showJointAxes} setShowJointAxes={setShowJointAxes}
+                wireframe={wireframe} setWireframe={setWireframe}
+            />
+            <hr />
+            {robot && (
+                <JointController 
+                    robot={robot} 
+                    jointValues={jointValues} 
+                    onJointChange={handleJointChange} 
+                />
+            )}
+            {error && <div style={{ color: 'red' }}>{error}</div>}
+        </div>
       </div>
-      <div className="viewer-container">
-        {loading && <div className="loading-indicator">Loading...</div>}
-        
-        {/* Link Info Popup */}
-        {linkSelection.visible && (
-            <InfoPopup
-                name={linkSelection.name}
-                matrix={linkSelection.matrix}
-                parentMatrix={linkSelection.parentMatrix}
+              <div className="viewer-container">
+              {loading && <div className="loading-indicator">Loading...</div>}
+              
+              {/* Link Info Popup - Hidden when Tree is open */}
+              {linkSelection.visible && !showStructureTree && (
+                  <InfoPopup
+                      name={linkSelection.name}
+                      matrix={linkSelection.matrix}                parentMatrix={linkSelection.parentMatrix}
                 top={linkSelection.position.y}
                 left={linkSelection.position.x}
                 onClose={closeLinkPopup}
@@ -612,8 +769,8 @@ function App() {
             />
         )}
 
-        {/* Joint Control Popup */}
-        {jointSelection.visible && jointSelection.joint && (
+        {/* Joint Control Popup - Hidden when Tree is open */}
+        {jointSelection.visible && jointSelection.joint && !showStructureTree && (
             <InfoPopup
                 name={jointSelection.joint.name}
                 matrix={null}
@@ -630,7 +787,8 @@ function App() {
         <Viewer
           robot={robot}
           isCtrlPressed={isCtrlPressed}
-          selectedLinkName={linkSelection.visible ? linkSelection.name : null}
+          // Pass name regardless of visible flag, allowing highlight-only state
+          selectedLinkName={linkSelection.name}
           selectedJoint={jointSelection.visible ? jointSelection.joint : null}
           showWorldAxes={showWorldAxes}
           showGrid={showGrid}
@@ -642,6 +800,51 @@ function App() {
           onJointChange={handleJointChange}
           onMatrixUpdate={() => {}} // No-op, driven by onSelectionUpdate now
         />
+
+        {/* Floating Toggle Button for Structure Tree */}
+        {robot && (
+            <button 
+                className="structure-tree-toggle"
+                onClick={() => setShowStructureTree(!showStructureTree)}
+                title="Toggle Kinematic Structure Tree"
+            >
+                🌳
+            </button>
+        )}
+
+        {/* Structure Tree Overlay - Always mounted to preserve state, toggled via CSS */}
+        {robot && (
+            <div style={{ 
+                display: showStructureTree ? 'block' : 'none', 
+                position: 'absolute', 
+                top: 0, 
+                left: 0, 
+                width: '100%', 
+                height: '100%', 
+                zIndex: 2000,
+                pointerEvents: isCtrlPressed ? 'none' : 'auto' 
+            }}>
+                <StructureTree 
+                    robot={robot} 
+                    isCtrlPressed={isCtrlPressed}
+                    selectedLinkName={linkSelection.name}
+                    selectedJointName={jointSelection.joint?.name || null}
+                    onClose={() => setShowStructureTree(false)} 
+                    onSelect={(obj) => {
+                        // Check type and call appropriate handler
+                        if ((obj as any).isURDFLink) {
+                            const link = obj as THREE.Object3D;
+                            link.updateWorldMatrix(true, false);
+                            // Pass visible=false to highlight WITHOUT showing the InfoPopup
+                            handleSelectionUpdate(link.name, link.matrixWorld, link.parent ? link.parent.matrixWorld : null, false);
+                        } else if ((obj as any).isURDFJoint) {
+                            const joint = obj as URDFJoint;
+                            handleJointSelect(joint);
+                        }
+                    }}
+                />
+            </div>
+        )}
       </div>
     </div>
   );
