@@ -115,6 +115,23 @@ This project solves the challenge of visualizing ROS robot models in a browser e
 - **J**: Toggle Joint Axes / 显示或隐藏关节轴指示器
 - **F**: Toggle Wireframe Mode / 切换线框渲染模式
 - **T**: Toggle Kinematic Tree / 显示或隐藏运动学结构树
+- **R**: Toggle Measurement Mode / 开启或关闭测量模式
+
+### Measurement Tool / 测量工具
+
+- **Activate**: Click the ruler icon (📏) or press **R**.
+  **激活**: 点击直尺图标 (📏) 或按 **R** 键。
+- **Measure**: Click on the robot model to add measurement points. A line with distance labels will appear between sequential points.
+  **测量**: 点击机器人模型表面添加测量点。点与点之间将显示连线及距离。
+- **Joint Snapping**: Hold **Ctrl** to reveal joints (orange indicators), then click a joint to snap the measurement point to its exact center.
+  **关节吸附**: 按住 **Ctrl** 显示关节（橙色指示器），点击关节即可将测量点吸附至其中心。
+- **Dynamic Updates**: Measurement points are attached to the specific link or joint and will move with the robot as you manipulate it.
+  **动态更新**: 测量点会附着在特定的连杆或关节上，并随机器人运动而移动。
+- **Remove Point**: Right-click on a measurement point (red sphere) to remove it.
+  **移除点**: 右键点击测量点（红色球体）即可将其移除。
+
+> **Note**: `Ctrl + R` (Browser Refresh) is blocked to prevent accidental loss of loaded models.
+> **注意**: 已屏蔽 `Ctrl + R` (浏览器刷新) 快捷键，防止意外丢失已加载的模型。
 
 <p align='center'><img src='src\picture\tree.gif' width=95%></p>
 
