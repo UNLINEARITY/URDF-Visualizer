@@ -847,30 +847,95 @@ const Viewer: React.FC<ViewerProps> = (props) => {
             const m = (child as any).material;
             if (Array.isArray(m)) m.forEach(x => x.dispose());
             else m.dispose();
+            if (m.map) m.map.dispose(); // Dispose texture for sprites
         }
         group.remove(child);
     }
 
     if (measurementPoints.length === 0) return;
 
+    // Helper to create text sprite
+    const createLabelSprite = (text: string) => {
+        const canvas = document.createElement('canvas');
+        const context = canvas.getContext('2d');
+        if (!context) return null;
+
+        const fontSize = 32; // Smaller high-res font
+        context.font = `bold ${fontSize}px Arial`;
+        const textMetrics = context.measureText(text);
+        
+        // Add minimal padding for shadow
+        canvas.width = textMetrics.width + 10;
+        canvas.height = fontSize + 10;
+
+        // Re-setup context
+        context.font = `bold ${fontSize}px Arial`;
+        context.textAlign = 'center';
+        context.textBaseline = 'middle';
+        
+        // Text Shadow for readability without box
+        context.shadowColor = "rgba(0, 0, 0, 1.0)";
+        context.shadowBlur = 4;
+        context.shadowOffsetX = 1;
+        context.shadowOffsetY = 1;
+
+        // Text
+        context.fillStyle = '#ffffff';
+        context.fillText(text, canvas.width / 2, canvas.height / 2);
+
+        const texture = new THREE.CanvasTexture(canvas);
+        texture.minFilter = THREE.LinearFilter; 
+
+        const spriteMaterial = new THREE.SpriteMaterial({ map: texture, depthTest: false, transparent: true });
+        const sprite = new THREE.Sprite(spriteMaterial);
+        
+        // Scale down to world units
+        const scaleFactor = 0.0025; 
+        sprite.scale.set(canvas.width * scaleFactor, canvas.height * scaleFactor, 1);
+        
+        return sprite;
+    };
+
     // Materials
-    const pointMat = new THREE.MeshBasicMaterial({ color: 0xff0000, depthTest: false, transparent: true, opacity: 0.8 });
-    const lineMat = new THREE.LineBasicMaterial({ color: 0xff0000, depthTest: false, transparent: true, opacity: 0.8, linewidth: 2 });
+    const pointMat = new THREE.MeshBasicMaterial({ color: 0xff5722, depthTest: false, transparent: true, opacity: 0.9 });
+    const lineMat = new THREE.LineBasicMaterial({ color: 0xff5722, depthTest: false, transparent: true, opacity: 0.8, linewidth: 2 });
 
     // Render Points
     measurementPoints.forEach(pt => {
-        const sphere = new THREE.Mesh(new THREE.SphereGeometry(0.03, 16, 16), pointMat);
+        const sphere = new THREE.Mesh(new THREE.SphereGeometry(0.015, 16, 16), pointMat);
         sphere.position.copy(pt);
-        sphere.renderOrder = 999; // Draw on top
+        sphere.renderOrder = 999;
         group.add(sphere);
     });
 
-    // Render Line if 2 points
-    if (measurementPoints.length === 2) {
+    // Render Lines and Labels
+    if (measurementPoints.length > 1) {
+        // Create a continuous line buffer or individual segments?
+        // Individual segments easier for coloring/logic, but BufferGeometry for polyline is standard.
+        // Let's do BufferGeometry for the whole line strip for clean joints, 
+        // BUT we need midpoints for labels, so we loop anyway.
+        
         const geometry = new THREE.BufferGeometry().setFromPoints(measurementPoints);
         const line = new THREE.Line(geometry, lineMat);
-        line.renderOrder = 999;
+        line.renderOrder = 998;
         group.add(line);
+
+        // Labels for each segment
+        for (let i = 0; i < measurementPoints.length - 1; i++) {
+            const p1 = measurementPoints[i];
+            const p2 = measurementPoints[i+1];
+            const dist = p1.distanceTo(p2);
+            
+            const label = createLabelSprite(`${dist.toFixed(4)}m`);
+            if (label) {
+                const midPoint = new THREE.Vector3().lerpVectors(p1, p2, 0.5);
+                label.position.copy(midPoint);
+                // Offset slightly up so it doesn't clip line perfectly
+                label.position.z += 0.05; 
+                label.renderOrder = 1000;
+                group.add(label);
+            }
+        }
     }
   }, [measurementPoints]);
 

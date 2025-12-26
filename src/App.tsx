@@ -150,12 +150,7 @@ function App() {
   const closeJointPopup = () => setJointSelection(prev => ({ ...prev, visible: false, joint: null }));
 
   const handleMeasurementClick = (point: THREE.Vector3) => {
-      setMeasurementPoints(prev => {
-          if (prev.length >= 2) {
-              return [point]; // Start new pair
-          }
-          return [...prev, point];
-      });
+      setMeasurementPoints(prev => [...prev, point]);
   };
 
   // Effect to fetch the list of sample files from the static manifest
@@ -341,6 +336,10 @@ function App() {
         case 'j': setShowJointAxes(v => !v); break;
         case 'f': setWireframe(v => !v); break;
         case 't': setShowStructureTree(v => !v); break;
+        case 'r': 
+            setIsMeasurementMode(v => !v); 
+            setMeasurementPoints([]); 
+            break;
         case 'escape': 
             closeLinkPopup(); 
             closeJointPopup();
@@ -858,17 +857,10 @@ function App() {
                         setIsMeasurementMode(!isMeasurementMode);
                         setMeasurementPoints([]);
                     }}
-                    title="Measurement Mode (Click two points)"
+                    title="Measurement Mode (R) - Click multiple points"
                 >
                     📏
                 </button>
-
-                {/* Distance Display Badge */}
-                {measurementPoints.length === 2 && (
-                    <div className="distance-badge">
-                        Distance: {measurementPoints[0].distanceTo(measurementPoints[1]).toFixed(4)} m
-                    </div>
-                )}
 
                 <button 
                     className="structure-tree-toggle"
