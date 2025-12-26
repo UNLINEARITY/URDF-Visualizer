@@ -18,10 +18,13 @@ interface ViewerProps {
   onJointSelect: (joint: URDFJoint) => void;
   onJointChange: (name: string, value: number) => void;
   onMatrixUpdate: (matrix: THREE.Matrix4) => void;
+  isMeasurementMode: boolean;
+  measurementPoints: THREE.Vector3[];
+  onMeasurementClick: (point: THREE.Vector3) => void;
 }
 
 const Viewer: React.FC<ViewerProps> = (props) => {
-  const { robot, isCtrlPressed, selectedLinkName, selectedJoint, showWorldAxes, showGrid, showLinkAxes, showJointAxes, showShadows, wireframe, onSelectionUpdate, onJointSelect, onJointChange, onMatrixUpdate } = props;
+  const { robot, isCtrlPressed, selectedLinkName, selectedJoint, showWorldAxes, showGrid, showLinkAxes, showJointAxes, showShadows, wireframe, onSelectionUpdate, onJointSelect, onJointChange, onMatrixUpdate, isMeasurementMode, measurementPoints, onMeasurementClick } = props;
   const mountRef = useRef<HTMLDivElement>(null);
 
   // Refs for three.js objects
@@ -82,6 +85,10 @@ const Viewer: React.FC<ViewerProps> = (props) => {
   const onJointChangeRef = useRef(onJointChange);
   const isCtrlPressedRef = useRef(isCtrlPressed);
   const robotRef = useRef<URDFRobot | null>(robot);
+  const isMeasurementModeRef = useRef(isMeasurementMode);
+  const onMeasurementClickRef = useRef(onMeasurementClick);
+  const measurementPointsRef = useRef(measurementPoints);
+  const measurementGroupRef = useRef<THREE.Group | null>(null);
   
   useEffect(() => { onMatrixUpdateRef.current = onMatrixUpdate; }, [onMatrixUpdate]);
   useEffect(() => { onSelectionUpdateRef.current = onSelectionUpdate; }, [onSelectionUpdate]);
@@ -89,6 +96,9 @@ const Viewer: React.FC<ViewerProps> = (props) => {
   useEffect(() => { onJointChangeRef.current = onJointChange; }, [onJointChange]);
   useEffect(() => { isCtrlPressedRef.current = isCtrlPressed; }, [isCtrlPressed]);
   useEffect(() => { robotRef.current = robot; }, [robot]);
+  useEffect(() => { isMeasurementModeRef.current = isMeasurementMode; }, [isMeasurementMode]);
+  useEffect(() => { onMeasurementClickRef.current = onMeasurementClick; }, [onMeasurementClick]);
+  useEffect(() => { measurementPointsRef.current = measurementPoints; }, [measurementPoints]);
 
   const unhighlightLink = () => {
     if (selectedLinkRef.current && originalLinkMaterialRef.current) {
@@ -258,6 +268,12 @@ const Viewer: React.FC<ViewerProps> = (props) => {
     axesRef.current = new THREE.AxesHelper(1);
     scene.add(axesRef.current);
 
+    // Measurement Group
+    const measurementGroup = new THREE.Group();
+    measurementGroup.name = 'measurement-group';
+    scene.add(measurementGroup);
+    measurementGroupRef.current = measurementGroup;
+
     const raycaster = new THREE.Raycaster();
     const mouse = new THREE.Vector2();
     
@@ -343,7 +359,11 @@ const Viewer: React.FC<ViewerProps> = (props) => {
 
     const handleMouseDown = (event: MouseEvent) => {
         // Only handle LEFT click for dragging
-        if (event.button !== 0 || isCtrlPressedRef.current) return;
+        if (event.button !== 0) return;
+        
+        // If NOT in measurement mode, block Ctrl (keep legacy behavior for dragging)
+        if (isCtrlPressedRef.current && !isMeasurementModeRef.current) return;
+
         if (!mountRef.current || !camera || !robotRef.current) return;
 
         const rect = mountRef.current.getBoundingClientRect();
@@ -352,6 +372,35 @@ const Viewer: React.FC<ViewerProps> = (props) => {
         
         raycaster.setFromCamera(new THREE.Vector2(ndcX, ndcY), camera);
         const intersects = raycaster.intersectObject(robotRef.current, true);
+
+        // --- MEASUREMENT MODE ---
+        if (isMeasurementModeRef.current) {
+            // 1. Priority: Joint Centers (if clicking on a helper)
+            // Useful when holding Ctrl to see joints
+            const jointHit = intersects.find(i => i.object.name === 'joint-helper');
+            if (jointHit && jointHit.object.parent) {
+                const joint = jointHit.object.parent;
+                const centerPos = new THREE.Vector3().setFromMatrixPosition(joint.matrixWorld);
+                onMeasurementClickRef.current(centerPos);
+                return;
+            }
+
+            // 2. Standard: Mesh Surface
+            const hit = intersects.find(i => {
+                let obj: THREE.Object3D | null = i.object;
+                // Ignore helpers if we didn't catch them above
+                while(obj) {
+                    if (obj.name.includes('helper') || obj.name.includes('axes')) return false;
+                    obj = obj.parent;
+                }
+                return true;
+            });
+
+            if (hit) {
+                onMeasurementClickRef.current(hit.point);
+            }
+            return; // Stop standard selection logic
+        }
 
         // Find the link
         let link: URDFLink | null = null;
@@ -784,6 +833,46 @@ const Viewer: React.FC<ViewerProps> = (props) => {
     if (gridRef.current) gridRef.current.visible = showGrid;
     if (axesRef.current) axesRef.current.visible = showWorldAxes;
   }, [showGrid, showWorldAxes]);
+
+  // 4. Measurement Visualization
+  useEffect(() => {
+    const group = measurementGroupRef.current;
+    if (!group) return;
+
+    // Clear previous
+    while (group.children.length > 0) {
+        const child = group.children[0];
+        if ((child as THREE.Mesh).geometry) (child as THREE.Mesh).geometry.dispose();
+        if ((child as any).material) {
+            const m = (child as any).material;
+            if (Array.isArray(m)) m.forEach(x => x.dispose());
+            else m.dispose();
+        }
+        group.remove(child);
+    }
+
+    if (measurementPoints.length === 0) return;
+
+    // Materials
+    const pointMat = new THREE.MeshBasicMaterial({ color: 0xff0000, depthTest: false, transparent: true, opacity: 0.8 });
+    const lineMat = new THREE.LineBasicMaterial({ color: 0xff0000, depthTest: false, transparent: true, opacity: 0.8, linewidth: 2 });
+
+    // Render Points
+    measurementPoints.forEach(pt => {
+        const sphere = new THREE.Mesh(new THREE.SphereGeometry(0.03, 16, 16), pointMat);
+        sphere.position.copy(pt);
+        sphere.renderOrder = 999; // Draw on top
+        group.add(sphere);
+    });
+
+    // Render Line if 2 points
+    if (measurementPoints.length === 2) {
+        const geometry = new THREE.BufferGeometry().setFromPoints(measurementPoints);
+        const line = new THREE.Line(geometry, lineMat);
+        line.renderOrder = 999;
+        group.add(line);
+    }
+  }, [measurementPoints]);
 
   return <div ref={mountRef} style={{ width: '100%', height: '100%' }} />;
 };
