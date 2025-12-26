@@ -150,7 +150,19 @@ function App() {
   const closeJointPopup = () => setJointSelection(prev => ({ ...prev, visible: false, joint: null }));
 
   const handleMeasurementClick = (point: THREE.Vector3) => {
-      setMeasurementPoints(prev => [...prev, point]);
+      setMeasurementPoints(prev => {
+          if (prev.length > 0) {
+              const lastPoint = prev[prev.length - 1];
+              if (lastPoint.distanceTo(point) < 0.001) {
+                  return prev; // Duplicate click ignore
+              }
+          }
+          return [...prev, point];
+      });
+  };
+
+  const handleMeasurementRemove = (index: number) => {
+      setMeasurementPoints(prev => prev.filter((_, i) => i !== index));
   };
 
   // Effect to fetch the list of sample files from the static manifest
@@ -324,6 +336,12 @@ function App() {
   // Keyboard shortcuts effect
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      // Block Ctrl+R (Reload)
+      if (e.ctrlKey && e.key.toLowerCase() === 'r') {
+          e.preventDefault();
+          return;
+      }
+
       if (e.key === 'Control') {
           setIsCtrlPressed(true);
       }
@@ -839,6 +857,7 @@ function App() {
           isMeasurementMode={isMeasurementMode}
           measurementPoints={measurementPoints}
           onMeasurementClick={handleMeasurementClick}
+          onMeasurementRemove={handleMeasurementRemove}
         />
 
         {/* Floating Toggle Button for Structure Tree */}

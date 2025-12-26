@@ -21,10 +21,11 @@ interface ViewerProps {
   isMeasurementMode: boolean;
   measurementPoints: THREE.Vector3[];
   onMeasurementClick: (point: THREE.Vector3) => void;
+  onMeasurementRemove: (index: number) => void;
 }
 
 const Viewer: React.FC<ViewerProps> = (props) => {
-  const { robot, isCtrlPressed, selectedLinkName, selectedJoint, showWorldAxes, showGrid, showLinkAxes, showJointAxes, showShadows, wireframe, onSelectionUpdate, onJointSelect, onJointChange, onMatrixUpdate, isMeasurementMode, measurementPoints, onMeasurementClick } = props;
+  const { robot, isCtrlPressed, selectedLinkName, selectedJoint, showWorldAxes, showGrid, showLinkAxes, showJointAxes, showShadows, wireframe, onSelectionUpdate, onJointSelect, onJointChange, onMatrixUpdate, isMeasurementMode, measurementPoints, onMeasurementClick, onMeasurementRemove } = props;
   const mountRef = useRef<HTMLDivElement>(null);
 
   // Refs for three.js objects
@@ -87,6 +88,7 @@ const Viewer: React.FC<ViewerProps> = (props) => {
   const robotRef = useRef<URDFRobot | null>(robot);
   const isMeasurementModeRef = useRef(isMeasurementMode);
   const onMeasurementClickRef = useRef(onMeasurementClick);
+  const onMeasurementRemoveRef = useRef(onMeasurementRemove);
   const measurementPointsRef = useRef(measurementPoints);
   const measurementGroupRef = useRef<THREE.Group | null>(null);
   
@@ -98,6 +100,7 @@ const Viewer: React.FC<ViewerProps> = (props) => {
   useEffect(() => { robotRef.current = robot; }, [robot]);
   useEffect(() => { isMeasurementModeRef.current = isMeasurementMode; }, [isMeasurementMode]);
   useEffect(() => { onMeasurementClickRef.current = onMeasurementClick; }, [onMeasurementClick]);
+  useEffect(() => { onMeasurementRemoveRef.current = onMeasurementRemove; }, [onMeasurementRemove]);
   useEffect(() => { measurementPointsRef.current = measurementPoints; }, [measurementPoints]);
 
   const unhighlightLink = () => {
@@ -601,6 +604,20 @@ const Viewer: React.FC<ViewerProps> = (props) => {
       
       raycaster.setFromCamera(mouse, camera);
       
+      // --- MEASUREMENT MODE REMOVAL ---
+      if (isMeasurementModeRef.current && measurementGroupRef.current) {
+          const intersects = raycaster.intersectObject(measurementGroupRef.current, true);
+          // Check if we hit a measurement sphere
+          const sphereHit = intersects.find(i => (i.object as any).userData.isMeasurementPoint);
+          if (sphereHit) {
+             const index = (sphereHit.object as any).userData.index;
+             if (typeof index === 'number') {
+                 onMeasurementRemoveRef.current(index);
+                 return; // Stop other context menu logic
+             }
+          }
+      }
+
       // Raycast ONLY against the robot model to avoid hitting the grid/axes
       const intersects = raycaster.intersectObject(robotRef.current, true);
       
@@ -860,7 +877,7 @@ const Viewer: React.FC<ViewerProps> = (props) => {
         const context = canvas.getContext('2d');
         if (!context) return null;
 
-        const fontSize = 32; // Smaller high-res font
+        const fontSize = 24; // Smaller high-res font
         context.font = `bold ${fontSize}px Arial`;
         const textMetrics = context.measureText(text);
         
@@ -890,7 +907,7 @@ const Viewer: React.FC<ViewerProps> = (props) => {
         const sprite = new THREE.Sprite(spriteMaterial);
         
         // Scale down to world units
-        const scaleFactor = 0.0025; 
+        const scaleFactor = 0.002; 
         sprite.scale.set(canvas.width * scaleFactor, canvas.height * scaleFactor, 1);
         
         return sprite;
@@ -901,10 +918,11 @@ const Viewer: React.FC<ViewerProps> = (props) => {
     const lineMat = new THREE.LineBasicMaterial({ color: 0xff5722, depthTest: false, transparent: true, opacity: 0.8, linewidth: 2 });
 
     // Render Points
-    measurementPoints.forEach(pt => {
+    measurementPoints.forEach((pt, i) => {
         const sphere = new THREE.Mesh(new THREE.SphereGeometry(0.015, 16, 16), pointMat);
         sphere.position.copy(pt);
         sphere.renderOrder = 999;
+        (sphere as any).userData = { isMeasurementPoint: true, index: i };
         group.add(sphere);
     });
 
