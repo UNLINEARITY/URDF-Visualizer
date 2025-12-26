@@ -34,21 +34,21 @@ This project solves the challenge of visualizing ROS robot models in a browser e
 
 ---
 
-## Key Features / 核心特性
+## 1. Key Features / 核心特性
 
-### 1. High-Fidelity Rendering / 高保真渲染
+### 1.1 High-Fidelity Rendering / 高保真渲染
 - **Engine**: Powered by [Three.js](https://threejs.org/), supporting PBR materials, dynamic lighting, and shadows.
   **引擎**: 基于 Three.js，支持 PBR 材质、动态光照和阴影。
 - **Visual Helpers**: Integrated grid systems, coordinate axes (World/Local), and joint visualization helpers.
   **视觉辅助**: 集成网格系统、坐标轴（世界/局部）和关节可视化辅助工具。
 
-### 2. Comprehensive File Support / 全面的文件支持
+### 1.2 Comprehensive File Support / 全面的文件支持
 - **Drag & Drop Workflow**: Support for dragging entire directories containing URDFs, meshes (STL/DAE/OBJ), and textures.
   **拖拽工作流**: 支持拖拽包含 URDF、网格模型 (STL/DAE/OBJ) 和纹理的完整目录。
 - **Path Resolution**: Automatically resolves ROS-style `package://` paths by mapping them to the uploaded folder structure.
   **路径解析**: 通过将 ROS 风格的 `package://` 路径映射到上传的文件夹结构，实现自动资源解析。
 
-### 3. Advanced Xacro Engine / 高级 Xacro 引擎
+### 1.3 Advanced Xacro Engine / 高级 Xacro 引擎
 - **Client-Side Compilation**: Parses `.xacro` files directly in the browser.
   **客户端编译**: 直接在浏览器中解析 `.xacro` 文件。
 - **Recursive Includes**: Handles nested `<xacro:include>` tags and resolves dependencies.
@@ -56,7 +56,7 @@ This project solves the challenge of visualizing ROS robot models in a browser e
 - **ROS Command Simulation**: Simulates `$(find pkg_name)` commands using the virtual file context.
   **ROS 命令模拟**: 利用虚拟文件上下文模拟 `$(find pkg_name)` 命令。
 
-### 4. Interactive Inspection / 交互式审查
+### 1.4 Interactive Inspection / 交互式审查
 - **Kinematic Tree**: A visual graph displaying the hierarchical structure of Links and Joints.
   **运动学树**: 展示连杆和关节层级结构的各类可视化图表。
 - **Joint Manipulation**: Interactive sliders to control joint angles with limit enforcement.
@@ -66,9 +66,9 @@ This project solves the challenge of visualizing ROS robot models in a browser e
 
 ---
 
-## User Guide / 使用指南
+## 2. User Guide / 使用指南
 
-### Loading Models / 加载模型
+### 2.1 Loading Models / 加载模型
 
 1.  **Sample Library**: Select a pre-configured robot (e.g., Unitree Go2, Fourier G1) from the dropdown menu.
     **样本库**: 从下拉菜单中选择预配置的机器人（如 Unitree Go2, G1）。
@@ -94,7 +94,7 @@ This project solves the challenge of visualizing ROS robot models in a browser e
 <p align='center'><img src='src\picture\import.gif' width=95%></p>
 
 
-### Controls / 操作控制
+### 2.2 Controls / 操作控制
 
 | Action / 动作 | Mouse / Mouse | Description / 说明 |
 | :--- | :--- | :--- |
@@ -104,10 +104,7 @@ This project solves the challenge of visualizing ROS robot models in a browser e
 | **Select** / 选择 | Left Click | Select a Link to inspect its properties. / 选择连杆以查看属性。 |
 | **Joint** / 关节 | **Ctrl** + Right Click | Select a Joint to view axis and control knob. / 选择关节以查看轴向和控制旋钮。 |
 
-
-<p align='center'><img src='src\picture\note.gif' width=95%></p>
-
-### Keyboard Shortcuts / 键盘快捷键
+### 2.3 Keyboard Shortcuts / 键盘快捷键
 
 - **W**: Toggle World Axes / 显示或隐藏世界坐标系
 - **G**: Toggle Grid / 显示或隐藏地面网格
@@ -115,9 +112,34 @@ This project solves the challenge of visualizing ROS robot models in a browser e
 - **J**: Toggle Joint Axes / 显示或隐藏关节轴指示器
 - **F**: Toggle Wireframe Mode / 切换线框渲染模式
 - **T**: Toggle Kinematic Tree / 显示或隐藏运动学结构树
-- **R**: Toggle Measurement Mode / 开启或关闭测量模式
+- **R**: Toggle Measurement Mode / 开启或关闭测量模式 
 
-### Measurement Tool / 测量工具
+<p align='center'><img src='src\picture\note.gif' width=95%></p>
+
+
+### 2.4 Kinematic Structure Tree / 运动学结构树
+
+- **Overview**: A full-screen SVG-based overlay that visualizes the robot's link and joint hierarchy.
+  **概述**: 一个基于 SVG 的全屏覆盖层，直观展示机器人的连杆与关节层级结构。
+- **Toggle**: Click the tree icon (🌳) or press **T**.
+  **开关**: 点击树状图标 (🌳) 或按 **T** 键。
+- **Bidirectional Interaction**:
+  **双向交互**:
+  - **Tree to 3D**: Click any node in the tree to highlight the corresponding part in the 3D viewer.
+    **树转3D**: 点击树中的任意节点，即可在 3D 视图中高亮对应的部件。
+  - **3D to Tree**: Selecting a part in the 3D scene (Right Click or Ctrl+Right Click) will automatically expand and highlight the node in the tree.
+    **3D转树**: 在 3D 场景中选择部件（右键或 Ctrl+右键），树状图将自动展开并高亮对应节点。
+- **Legend / 图例**:
+  - **Circles (○)**: Represent **Joints**.
+    **圆圈 (○)**: 代表 **关节 (Joints)**。
+  - **Rectangles (□)**: Represent **Links**.
+    **方框 (□)**: 代表 **连杆 (Links)**。
+- **Node Details**: Selecting a node displays detailed properties such as joint types, limits, and axis information in a side panel.
+  **节点详情**: 选择节点后，侧边面板会显示关节类型、限位及轴向等详细属性。
+
+<p align='center'><img src='src\picture\tree.gif' width=95%></p>
+
+### 2.5 Measurement Tool / 测量工具
 
 - **Activate**: Click the ruler icon (📏) or press **R**.
   **激活**: 点击直尺图标 (📏) 或按 **R** 键。
@@ -130,20 +152,23 @@ This project solves the challenge of visualizing ROS robot models in a browser e
 - **Remove Point**: Right-click on a measurement point (red sphere) to remove it.
   **移除点**: 右键点击测量点（红色球体）即可将其移除。
 
+
+
 > **Note**: `Ctrl + R` (Browser Refresh) is blocked to prevent accidental loss of loaded models.
 > **注意**: 已屏蔽 `Ctrl + R` (浏览器刷新) 快捷键，防止意外丢失已加载的模型。
 
-<p align='center'><img src='src\picture\tree.gif' width=95%></p>
+<p align='center'><img src='src\picture\measure.gif' width=95%></p>
+
 
 ---
 
-## Development / 开发指南
+## 3. Development / 开发指南
 
-### Prerequisites / 环境要求
+### 3.1 Prerequisites / 环境要求
 - [Node.js](https://nodejs.org/) (Version 16 or higher)
 - [npm](https://www.npmjs.com/) (Node Package Manager)
 
-### Installation / 安装步骤
+### 3.2 Installation / 安装步骤
 
 Clone the repository and install dependencies:
 克隆仓库并安装依赖：
@@ -154,7 +179,7 @@ cd URDF-Visualizer
 npm install
 ```
 
-### Local Development / 本地开发
+### 3.3 Local Development / 本地开发
 
 Start the development server with Hot Module Replacement (HMR):
 启动带有热重载功能的开发服务器：
@@ -165,7 +190,7 @@ npm run dev
 Access the application at [http://localhost:5173](http://localhost:5173).
 访问地址：[http://localhost:5173](http://localhost:5173)。
 
-### Deployment / 部署
+### 3.4 Deployment / 部署
 
 This project uses **Vite** for building and **gh-pages** for deployment.
 本项目使用 **Vite** 进行构建，使用 **gh-pages** 进行部署。
@@ -181,7 +206,7 @@ npm run deploy
 
 ---
 
-## Technology Stack / 技术栈
+## 4. Technology Stack / 技术栈
 
 This project leverages the following open-source technologies:
 本项目使用了以下开源技术：
@@ -194,7 +219,7 @@ This project leverages the following open-source technologies:
 
 ---
 
-## License / 许可协议
+## 5. License / 许可协议
 
 This project is available under the MIT License. See the LICENSE file for more details.
 本项目基于 MIT 许可证开源。详情请参阅 LICENSE 文件。
