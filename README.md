@@ -2,7 +2,6 @@
 
 <p align='center'><img src='src\picture\all.png' width=95%></p> 
 
-
   <div  align="center" >
     <a href="https://github.com/UNLINEARITY/URDF-Visualizer/stargazers">
       <img src="https://img.shields.io/github/stars/UNLINEARITY/URDF-Visualizer.svg" alt="Stars">
