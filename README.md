@@ -69,6 +69,8 @@ This project solves the challenge of visualizing ROS robot models in a browser e
 
 ### 2.1 Loading Models / 加载模型
 
+<p align='center'><img src='src\picture\import.gif' width=95%></p> 
+
 1.  **Sample Library**: Select a pre-configured robot (e.g., Unitree Go2, Fourier G1) from the dropdown menu.
     **样本库**: 从下拉菜单中选择预配置的机器人（如 Unitree Go2, G1）。
 2.  **Local Folder Upload**:
@@ -87,13 +89,10 @@ This project solves the challenge of visualizing ROS robot models in a browser e
       - 包含 .urdf 与 .dae / .stl 等模型文件的文件夹，用于引入复杂几何与纹理；
       - 由多个 .xacro 配置文件组成、以 main.xacro 作为入口的工程目录。 
 
-    
-
-
-<p align='center'><img src='src\picture\import.gif' width=95%></p>
-
-
+  
 ### 2.2 Controls / 操作控制
+
+<p align='center'><img src='src\picture\note.gif' width=95%></p>
 
 | Action / 动作 | Mouse / Mouse | Description / 说明 |
 | :--- | :--- | :--- |
@@ -103,7 +102,6 @@ This project solves the challenge of visualizing ROS robot models in a browser e
 | **Select** / 选择 | Left Click | Select a Link to inspect its properties. / 选择连杆以查看属性。 |
 | **Joint** / 关节 | **Ctrl** + Right Click | Select a Joint to view axis and control knob. / 选择关节以查看轴向和控制旋钮。 |
 
-### 2.3 Keyboard Shortcuts / 键盘快捷键
 
 - **W**: Toggle World Axes / 显示或隐藏世界坐标系
 - **G**: Toggle Grid / 显示或隐藏地面网格
@@ -113,10 +111,10 @@ This project solves the challenge of visualizing ROS robot models in a browser e
 - **T**: Toggle Kinematic Tree / 显示或隐藏运动学结构树
 - **R**: Toggle Measurement Mode / 开启或关闭测量模式 
 
-<p align='center'><img src='src\picture\note.gif' width=95%></p>
 
+### 2.3 Kinematic Structure Tree / 运动学结构树
 
-### 2.4 Kinematic Structure Tree / 运动学结构树
+<p align='center'><img src='src\picture\tree.gif' width=95%></p>
 
 - **Overview**: A full-screen SVG-based overlay that visualizes the robot's link and joint hierarchy.
   **概述**: 一个基于 SVG 的全屏覆盖层，直观展示机器人的连杆与关节层级结构。
@@ -136,9 +134,11 @@ This project solves the challenge of visualizing ROS robot models in a browser e
 - **Node Details**: Selecting a node displays detailed properties such as joint types, limits, and axis information in a side panel.
   **节点详情**: 选择节点后，侧边面板会显示关节类型、限位及轴向等详细属性。
 
-<p align='center'><img src='src\picture\tree.gif' width=95%></p>
 
-### 2.5 Measurement Tool / 测量工具
+
+### 2.4 Measurement Tool / 测量工具
+
+<p align='center'><img src='src\picture\measure.gif' width=95%></p>
 
 - **Activate**: Click the ruler icon (📏) or press **R**.
   **激活**: 点击直尺图标 (📏) 或按 **R** 键。
@@ -155,8 +155,6 @@ This project solves the challenge of visualizing ROS robot models in a browser e
 
 > **Note**: `Ctrl + R` (Browser Refresh) is blocked to prevent accidental loss of loaded models.
 > **注意**: 已屏蔽 `Ctrl + R` (浏览器刷新) 快捷键，防止意外丢失已加载的模型。
-
-<p align='center'><img src='src\picture\measure.gif' width=95%></p>
 
 
 ---
@@ -183,9 +181,11 @@ npm install
 Start the development server with Hot Module Replacement (HMR):
 启动带有热重载功能的开发服务器：
 
+
 ```bash
 npm run dev
 ```
+
 Access the application at [http://localhost:5173](http://localhost:5173).
 访问地址：[http://localhost:5173](http://localhost:5173)。
 
