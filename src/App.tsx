@@ -46,8 +46,11 @@ function App() {
   
   const [isCtrlPressed, setIsCtrlPressed] = useState(false);
   const [sampleFiles, setSampleFiles] = useState<string[]>([]);
-  // const [isStaticMode, setIsStaticMode] = useState(false); // Removed
   
+  // -- MEASUREMENT STATE --
+  const [isMeasurementMode, setIsMeasurementMode] = useState(false);
+  const [measurementPoints, setMeasurementPoints] = useState<THREE.Vector3[]>([]);
+
   // -- GLOBAL JOINT STATE --
   const [jointValues, setJointValues] = useState<Record<string, number>>({});
 
@@ -146,6 +149,21 @@ function App() {
   const closeLinkPopup = () => setLinkSelection(prev => ({ ...prev, visible: false, name: null }));
   const closeJointPopup = () => setJointSelection(prev => ({ ...prev, visible: false, joint: null }));
 
+  const handleMeasurementClick = (point: THREE.Vector3) => {
+      setMeasurementPoints(prev => {
+          if (prev.length > 0) {
+              const lastPoint = prev[prev.length - 1];
+              if (lastPoint.distanceTo(point) < 0.001) {
+                  return prev; // Duplicate click ignore
+              }
+          }
+          return [...prev, point];
+      });
+  };
+
+  const handleMeasurementRemove = (index: number) => {
+      setMeasurementPoints(prev => prev.filter((_, i) => i !== index));
+  };
 
   // Effect to fetch the list of sample files from the static manifest
   useEffect(() => {
@@ -186,6 +204,8 @@ function App() {
     // Close popups when loading new model
     setLinkSelection(prev => ({ ...prev, visible: false }));
     setJointSelection(prev => ({ ...prev, visible: false }));
+    setMeasurementPoints([]);
+    setIsMeasurementMode(false);
 
     // Defer the parsing to allow the UI to update
     setTimeout(() => {
@@ -316,6 +336,12 @@ function App() {
   // Keyboard shortcuts effect
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      // Block Ctrl+R (Reload)
+      if (e.ctrlKey && e.key.toLowerCase() === 'r') {
+          e.preventDefault();
+          return;
+      }
+
       if (e.key === 'Control') {
           setIsCtrlPressed(true);
       }
@@ -328,6 +354,10 @@ function App() {
         case 'j': setShowJointAxes(v => !v); break;
         case 'f': setWireframe(v => !v); break;
         case 't': setShowStructureTree(v => !v); break;
+        case 'r': 
+            setIsMeasurementMode(v => !v); 
+            setMeasurementPoints([]); 
+            break;
         case 'escape': 
             closeLinkPopup(); 
             closeJointPopup();
@@ -824,11 +854,33 @@ function App() {
           onJointSelect={handleJointSelect}
           onJointChange={handleJointChange}
           onMatrixUpdate={() => {}} // No-op, driven by onSelectionUpdate now
+          isMeasurementMode={isMeasurementMode}
+          measurementPoints={measurementPoints}
+          onMeasurementClick={handleMeasurementClick}
+          onMeasurementRemove={handleMeasurementRemove}
         />
 
         {/* Floating Toggle Button for Structure Tree */}
         {robot && (
             <>
+                {/* Measurement Button - Left of Shadows */}
+                <button 
+                    className="structure-tree-toggle"
+                    style={{ 
+                        right: '8rem', 
+                        backgroundColor: isMeasurementMode ? '#ff5722' : '#444', 
+                        color: isMeasurementMode ? '#fff' : '#aaa',
+                        borderColor: isMeasurementMode ? '#fff' : '#666'
+                    }}
+                    onClick={() => {
+                        setIsMeasurementMode(!isMeasurementMode);
+                        setMeasurementPoints([]);
+                    }}
+                    title="Measurement Mode (R) - Click multiple points"
+                >
+                    📏
+                </button>
+
                 <button 
                     className="structure-tree-toggle"
                     style={{ right: '4.5rem', backgroundColor: showShadows ? '#ffca28' : '#444', color: showShadows ? '#333' : '#aaa', borderColor: showShadows ? '#fff' : '#666' }}
