@@ -1,2 +1,11 @@
-# Auto detect text files and perform LF normalization
-* text=auto
+# Normalize text files to LF in the repository and working tree.
+* text=auto eol=lf
+
+# Keep generated/binary assets out of text normalization.
+*.gif binary
+*.ico binary
+*.icns binary
+*.jpg binary
+*.jpeg binary
+*.png binary
+*.stl binary

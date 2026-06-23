@@ -1,0 +1,49 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+permissions:
+  contents: write
+
+jobs:
+  web-release:
+    name: Build and publish GitHub release
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build web app
+        run: npm run build
+
+      - name: Package web build
+        run: |
+          cd dist
+          zip -r ../urdf-visualizer-web-${GITHUB_REF_NAME}.zip .
+
+      - name: Publish GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          NOTES_FILE="docs/releases/${GITHUB_REF_NAME}.md"
+          if [ ! -f "$NOTES_FILE" ]; then
+            NOTES_FILE="CHANGELOG.md"
+          fi
+
+          gh release create "$GITHUB_REF_NAME" \
+            "urdf-visualizer-web-${GITHUB_REF_NAME}.zip" \
+            --title "URDF Visualizer ${GITHUB_REF_NAME}" \
+            --notes-file "$NOTES_FILE"
