@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import * as THREE from 'three';
 import { URDFJoint } from 'urdf-loader';
+import { isURDFLink } from '../utils/urdfTypes';
 
 interface InfoPopupProps {
   name: string | null;
@@ -16,18 +17,20 @@ interface InfoPopupProps {
 }
 
 const InfoPopup: React.FC<InfoPopupProps> = ({ name, matrix, parentMatrix, joint, value, onJointChange, top, left, onClose, onPositionChange }) => {
-  if (!name || (!matrix && !joint)) {
-    return null;
-  }
-
+  // NOTE: all hooks must run before any early return (rules-of-hooks).
   // ... (keep existing state and effect hooks for position dragging) ...
   const [currentPos, setCurrentPos] = useState({ x: left, y: top });
   const [isDragging, setIsDragging] = useState(false);
-  const offsetRef = useRef({ x: 0, y: 0 });
+  const offsetRef = useRef<{ x: number; y: number; parentX: number; parentY: number }>({
+    x: 0,
+    y: 0,
+    parentX: 0,
+    parentY: 0,
+  });
   const popupRef = useRef<HTMLDivElement>(null);
-  
+
   useEffect(() => { setCurrentPos({ x: left, y: top }); }, [top, left]);
-  
+
   const handleSliderChange = (e: React.ChangeEvent<HTMLInputElement>) => {
       const val = parseFloat(e.target.value);
       if (onJointChange) onJointChange(val);
@@ -43,17 +46,17 @@ const InfoPopup: React.FC<InfoPopupProps> = ({ name, matrix, parentMatrix, joint
       x: e.clientX - rect.left,
       y: e.clientY - rect.top,
       parentX: parentRect.left,
-      parentY: parentRect.top
-    } as any;
+      parentY: parentRect.top,
+    };
   };
 
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
       if (!isDragging) return;
       e.preventDefault();
-      const offset = offsetRef.current as any;
-      const newX = (e.clientX - offset.parentX) - offset.x;
-      const newY = (e.clientY - offset.parentY) - offset.y;
+      const offset = offsetRef.current;
+      const newX = e.clientX - offset.parentX - offset.x;
+      const newY = e.clientY - offset.parentY - offset.y;
       setCurrentPos({ x: newX, y: newY });
     };
     const handleMouseUp = () => {
@@ -88,6 +91,11 @@ const InfoPopup: React.FC<InfoPopupProps> = ({ name, matrix, parentMatrix, joint
       const invParent = parentMatrix.clone().invert();
       return invParent.multiply(matrix.clone());
   }, [matrix, parentMatrix]);
+
+  // All hooks are above. Now safe to short-circuit when there is nothing to show.
+  if (!name || (!matrix && !joint)) {
+    return null;
+  }
 
   const renderMatrixInfo = (m: THREE.Matrix4, title: string) => {
       const position = new THREE.Vector3();
@@ -165,13 +173,10 @@ const InfoPopup: React.FC<InfoPopupProps> = ({ name, matrix, parentMatrix, joint
       const unit = isRevolute ? 'rad' : 'm';
       const displayValue = value ?? 0;
       
-      const parentName = (joint.parent as any)?.name || 'None';
+      const parentName = joint.parent?.name || 'None';
       let childName = 'None';
-      if ((joint as any).child) childName = (joint as any).child.name;
-      else {
-          const childLink = joint.children.find(c => (c as any).isURDFLink);
-          if (childLink) childName = childLink.name;
-      }
+      const childLink = joint.children.find((c) => isURDFLink(c));
+      if (childLink) childName = childLink.name;
       const axis = joint.axis ? `${joint.axis.x}, ${joint.axis.y}, ${joint.axis.z}` : 'N/A';
 
       content = (

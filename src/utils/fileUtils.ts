@@ -54,7 +54,7 @@ export function findFileInMap(targetPath: string, fileMap: Map<string, File>): F
   if (fileMap.has(targetPath)) return fileMap.get(targetPath);
 
   // Normalize target: remove package://, file://, etc.
-  let normalizedTarget = targetPath.replace(/^(package:\/\/|file:\/\/)/, '');
+  const normalizedTarget = targetPath.replace(/^(package:\/\/|file:\/\/)/, '');
   
   // Try to find a key in fileMap that ends with normalizedTarget
   // Example: target "my_robot/meshes/base.stl", map key "my_robot/meshes/base.stl" -> Match

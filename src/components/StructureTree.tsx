@@ -1,6 +1,7 @@
 import React, { useMemo, useState, useRef, useEffect } from 'react';
 import { URDFRobot, URDFJoint } from 'urdf-loader';
 import { Object3D } from 'three';
+import { isURDFJoint, isURDFLink } from '../utils/urdfTypes';
 
 interface StructureTreeProps {
   robot: URDFRobot;
@@ -16,7 +17,7 @@ interface TreeNodeData {
   id: string;
   name: string;
   type: 'link' | 'joint';
-  object: Object3D; 
+  object: Object3D;
   children: TreeNodeData[];
   x: number;
   y: number;
@@ -26,9 +27,9 @@ interface TreeNodeData {
   hasChildren: boolean;
 }
 
-// --- Helper Functions ---
-const isJoint = (obj: Object3D): obj is URDFJoint => (obj as any).isURDFJoint;
-const isLink = (obj: Object3D): boolean => (obj as any).isURDFLink;
+// --- Helper Functions (typed guards live in utils/urdfTypes) ---
+const isJoint = isURDFJoint;
+const isLink = isURDFLink;
 
 const buildTreeData = (object: Object3D): TreeNodeData | null => {
   if (!isJoint(object) && !isLink(object) && object.children.length === 0) return null;
@@ -159,17 +160,20 @@ const StructureTree: React.FC<StructureTreeProps> = ({
       return rawTreeData;
   }, [rawTreeData, collapsedIds]);
 
+  // Mount-only: center the tree once. Intentionally empty deps so we don't
+  // re-center every time a node is collapsed/expanded.
   useEffect(() => {
     if (treeData && containerRef.current) {
-        calculateLayout(treeData, 0, 50, collapsedIds); 
+        calculateLayout(treeData, 0, 50, collapsedIds);
         const containerW = containerRef.current.clientWidth;
         setViewState({
-            x: (containerW / 2) - treeData.x - (NODE_WIDTH / 2), 
+            x: (containerW / 2) - treeData.x - (NODE_WIDTH / 2),
             y: 50,
             scale: 1
         });
     }
-  }, []); 
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // --- Interaction Handlers ---
   const handleWheel = (e: React.WheelEvent) => {
