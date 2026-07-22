@@ -12,6 +12,17 @@ import { useJointState } from './hooks/useJointState';
 import { useJointAnimation } from './hooks/useJointAnimation';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 import { isURDFJoint, isURDFLink } from './utils/urdfTypes';
+import {
+  ChevronLeft,
+  ChevronRight,
+  FileUp,
+  FolderUp,
+  Network,
+  Pause,
+  Play,
+  Ruler,
+  Sun,
+} from 'lucide-react';
 
 interface LinkSelection {
   name: string | null;
@@ -222,7 +233,7 @@ function App() {
         onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
         title={sidebarCollapsed ? 'Expand Sidebar' : 'Collapse Sidebar'}
       >
-        {sidebarCollapsed ? '▶' : '◀'}
+        {sidebarCollapsed ? <ChevronRight size={20} /> : <ChevronLeft size={20} />}
       </button>
 
       <div className={`ui-container ${sidebarCollapsed ? 'collapsed' : ''}`}>
@@ -258,7 +269,7 @@ function App() {
           </select>
 
           <label htmlFor="file-upload" className="custom-file-upload btn-file">
-            <i>📄</i> Select URDF/Xacro File
+            <FileUp size={16} /> Select URDF/Xacro File
           </label>
           <input
             id="file-upload"
@@ -269,7 +280,7 @@ function App() {
           />
 
           <label htmlFor="folder-upload" className="custom-file-upload btn-folder">
-            <i>📁</i> Select Project Folder
+            <FolderUp size={16} /> Select Project Folder
           </label>
           <input
             id="folder-upload"
@@ -372,7 +383,7 @@ function App() {
               onClick={toggleAnimation}
               title="Animate Joints (A) - 自动演示关节运动"
             >
-              {isAnimating ? '⏸️' : '▶️'}
+              {isAnimating ? <Pause size={20} /> : <Play size={20} />}
             </button>
 
             <button
@@ -386,7 +397,7 @@ function App() {
               onClick={toggleMeasurement}
               title="Measurement Mode (R) - Click multiple points"
             >
-              📏
+              <Ruler size={20} />
             </button>
 
             <button
@@ -400,7 +411,7 @@ function App() {
               onClick={() => setShowShadows(!showShadows)}
               title="Toggle Shadows"
             >
-              ☀️
+              <Sun size={20} />
             </button>
 
             <button
@@ -408,7 +419,7 @@ function App() {
               onClick={() => setShowStructureTree(!showStructureTree)}
               title="Toggle Kinematic Structure Tree"
             >
-              🌳
+              <Network size={20} />
             </button>
           </>
         )}
