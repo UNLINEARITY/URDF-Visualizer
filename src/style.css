@@ -145,6 +145,17 @@ canvas {
     border-left: 4px solid #ff9800; /* Orange for folder */
 }
 
+.btn-model {
+    border-left: 4px solid #66bb6a;
+}
+
+.standalone-model-name {
+    margin: -0.35rem 0 0.8rem;
+    color: #9e9e9e;
+    font-size: 0.8rem;
+    overflow-wrap: anywhere;
+}
+
 .controls-container h3 {
     margin-top: 0;
 }

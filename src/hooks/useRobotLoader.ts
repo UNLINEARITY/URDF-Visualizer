@@ -193,6 +193,7 @@ export function useRobotLoader(): UseRobotLoaderResult {
   const loadSample = useCallback(
     (filename: string) => {
       if (!filename) {
+        revokeBlobUrls();
         setRobot(null);
         setCurrentFilePath('');
         return;
@@ -223,7 +224,7 @@ export function useRobotLoader(): UseRobotLoaderResult {
           });
       }
     },
-    [parseRobot, processContent],
+    [parseRobot, processContent, revokeBlobUrls],
   );
 
   // --- Drag & Drop ---

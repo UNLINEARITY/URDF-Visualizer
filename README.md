@@ -44,6 +44,7 @@ This project solves the challenge of visualizing ROS robot models in a browser e
 ### 1.2 Comprehensive File Support / 全面的文件支持
 - **Drag & Drop Workflow**: Support for dragging entire directories containing URDFs, meshes (STL/DAE/OBJ), and textures.
   **拖拽工作流**: 支持拖拽包含 URDF、网格模型 (STL/DAE/OBJ) 和纹理的完整目录。
+- **Standalone CAD Viewer**: Open `.stl`, `.step`, and `.stp` files directly. STEP files are tessellated locally in the browser, so model data is never uploaded.
 - **Path Resolution**: Automatically resolves ROS-style `package://` paths by mapping them to the uploaded folder structure.
   **路径解析**: 通过将 ROS 风格的 `package://` 路径映射到上传的文件夹结构，实现自动资源解析。
 
@@ -73,7 +74,8 @@ This project solves the challenge of visualizing ROS robot models in a browser e
 
 1.  **Sample Library**: Select a pre-configured robot (e.g., Unitree Go2, Fourier G1) from the dropdown menu.
     **样本库**: 从下拉菜单中选择预配置的机器人（如 Unitree Go2, G1）。
-2.  **Local Folder Upload**:
+2.  **Standalone CAD File**: Click **View STL / STEP / STP** or drop one `.stl`, `.step`, or `.stp` file onto the viewer. The camera frames the model automatically; grid, shadow, wireframe, and measurement tools remain available.
+3.  **Local Folder Upload**:
     **本地文件夹上传**:
     - Click **Select Project Folder** to upload a root folder containing your robot description (URDFs and Meshes).
       点击 **Select Project Folder** 上传包含机器人描述（URDF 和 Meshes）的根目录。

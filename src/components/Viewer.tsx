@@ -29,6 +29,8 @@ interface ViewerProps {
   measurementPoints: THREE.Vector3[];
   onMeasurementClick: (point: THREE.Vector3) => void;
   onMeasurementRemove: (index: number) => void;
+  /** Reframe the camera after loading a standalone mesh or CAD model. */
+  autoFrame?: boolean;
 }
 
 const MIN_MATRIX_PUSH_INTERVAL_MS = 66; // ~15Hz throttle for live popup updates
@@ -64,6 +66,7 @@ const Viewer: React.FC<ViewerProps> = (props) => {
     measurementPoints,
     onMeasurementClick,
     onMeasurementRemove,
+    autoFrame = false,
   } = props;
   const mountRef = useRef<HTMLDivElement>(null);
 
@@ -835,12 +838,31 @@ const Viewer: React.FC<ViewerProps> = (props) => {
 
     if (robot) {
       scene.add(robot);
+      if (autoFrame && cameraRef.current && controlsRef.current) {
+        const bounds = new THREE.Box3().setFromObject(robot);
+        const size = bounds.getSize(new THREE.Vector3());
+        const center = bounds.getCenter(new THREE.Vector3());
+        const largestDimension = Math.max(size.x, size.y, size.z);
+
+        if (Number.isFinite(largestDimension) && largestDimension > 0) {
+          const camera = cameraRef.current;
+          const controls = controlsRef.current;
+          const distance = largestDimension / (2 * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)));
+          const direction = new THREE.Vector3(1, 1, 0.8).normalize();
+          camera.position.copy(center).addScaledVector(direction, distance * 1.35);
+          camera.near = Math.max(distance / 100, 0.001);
+          camera.far = Math.max(distance * 100, 1000);
+          camera.updateProjectionMatrix();
+          controls.target.copy(center);
+          controls.update();
+        }
+      }
       return () => {
         scene.remove(robot);
         disposeObject3D(robot);
       };
     }
-  }, [robot]);
+  }, [robot, autoFrame]);
 
   // 3. Display Toggles
   useEffect(() => {

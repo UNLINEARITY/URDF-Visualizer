@@ -8,6 +8,7 @@ import InfoPopup from './components/InfoPopup';
 import StructureTree from './components/StructureTree';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { useRobotLoader } from './hooks/useRobotLoader';
+import { useStandaloneModelLoader } from './hooks/useStandaloneModelLoader';
 import { useJointState } from './hooks/useJointState';
 import { useJointAnimation } from './hooks/useJointAnimation';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
@@ -17,6 +18,7 @@ import {
   ChevronRight,
   FileUp,
   FolderUp,
+  Box,
   Network,
   Pause,
   Play,
@@ -53,8 +55,11 @@ function App() {
     loadSample,
     handleDragOver,
     handleDragLeave,
-    handleDrop,
+    handleDrop: handleRobotDrop,
   } = useRobotLoader();
+  const standaloneModel = useStandaloneModelLoader();
+
+  const displayedModel = robot ?? (standaloneModel.model as unknown as typeof robot);
 
   const { jointValues, setJointValue, resetJoints } = useJointState(robot);
   const { isAnimating, toggleAnimation } = useJointAnimation(robot, setJointValue);
@@ -193,25 +198,63 @@ function App() {
   const handleFileInputChange = useCallback(
     (event: React.ChangeEvent<HTMLInputElement>) => {
       const file = event.target.files?.[0];
-      if (file) loadSingleFile(file);
+      if (file) {
+        standaloneModel.clear();
+        loadSingleFile(file);
+      }
       event.target.value = '';
     },
-    [loadSingleFile],
+    [loadSingleFile, standaloneModel],
+  );
+
+  const handleModelFileInputChange = useCallback(
+    (event: React.ChangeEvent<HTMLInputElement>) => {
+      const file = event.target.files?.[0];
+      if (file) {
+        loadSample('');
+        void standaloneModel.loadFile(file);
+      }
+      event.target.value = '';
+    },
+    [loadSample, standaloneModel],
   );
 
   const handleFolderInputChange = useCallback(
     (event: React.ChangeEvent<HTMLInputElement>) => {
-      if (event.target.files) loadFolderFileList(event.target.files);
+      if (event.target.files) {
+        standaloneModel.clear();
+        loadFolderFileList(event.target.files);
+      }
       event.target.value = '';
     },
-    [loadFolderFileList],
+    [loadFolderFileList, standaloneModel],
   );
 
   const handleSampleSelectChange = useCallback(
     (event: React.ChangeEvent<HTMLSelectElement>) => {
+      standaloneModel.clear();
       loadSample(event.target.value);
     },
-    [loadSample],
+    [loadSample, standaloneModel],
+  );
+
+  const handleDrop = useCallback(
+    (event: React.DragEvent) => {
+      const files = Array.from(event.dataTransfer.files);
+      const file = files.length === 1 ? files[0] : undefined;
+      const extension = file?.name.split('.').pop()?.toLowerCase();
+
+      if (file && (extension === 'stl' || extension === 'step' || extension === 'stp')) {
+        handleDragLeave(event);
+        loadSample('');
+        void standaloneModel.loadFile(file);
+        return;
+      }
+
+      standaloneModel.clear();
+      void handleRobotDrop(event);
+    },
+    [handleDragLeave, handleRobotDrop, loadSample, standaloneModel],
   );
 
   return (
@@ -223,7 +266,7 @@ function App() {
     >
       {isDragActive && (
         <div className="drag-overlay">
-          <h3>Drop URDF/Xacro Folder Here</h3>
+          <h3>Drop a Robot Project or STL / STEP / STP File Here</h3>
         </div>
       )}
 
@@ -254,7 +297,7 @@ function App() {
               />
             </a>
           </div>
-          <p>Load a sample or drag & drop a folder.</p>
+          <p>Load a robot project or a standalone CAD model.</p>
           <select
             onChange={handleSampleSelectChange}
             value={sampleFiles.includes(currentFilePath) ? currentFilePath : ''}
@@ -278,6 +321,20 @@ function App() {
             onChange={handleFileInputChange}
             className="file-input-hidden"
           />
+
+          <label htmlFor="model-upload" className="custom-file-upload btn-model">
+            <Box size={16} /> View STL / STEP / STP
+          </label>
+          <input
+            id="model-upload"
+            type="file"
+            accept=".stl,.step,.stp"
+            onChange={handleModelFileInputChange}
+            className="file-input-hidden"
+          />
+          {standaloneModel.currentFileName && (
+            <p className="standalone-model-name">Viewing: {standaloneModel.currentFileName}</p>
+          )}
 
           <label htmlFor="folder-upload" className="custom-file-upload btn-folder">
             <FolderUp size={16} /> Select Project Folder
@@ -311,12 +368,14 @@ function App() {
               onReset={resetJoints}
             />
           )}
-          {error && <div style={{ color: 'red' }}>{error}</div>}
+          {(error || standaloneModel.error) && (
+            <div style={{ color: 'red' }}>{error || standaloneModel.error}</div>
+          )}
         </div>
       </div>
 
       <div className="viewer-container">
-        {loading && <div className="loading-indicator">Loading...</div>}
+        {(loading || standaloneModel.loading) && <div className="loading-indicator">Loading...</div>}
 
         {/* Link Info Popup - Hidden when Tree is open */}
         {linkSelection.visible && !showStructureTree && (
@@ -348,7 +407,8 @@ function App() {
 
         <ErrorBoundary>
           <Viewer
-            robot={robot}
+            robot={displayedModel}
+            autoFrame={!robot && standaloneModel.model !== null}
             isCtrlPressed={isCtrlPressed}
             selectedLinkName={linkSelection.name}
             selectedJoint={jointSelection.visible ? jointSelection.joint : null}
