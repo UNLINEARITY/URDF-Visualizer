@@ -429,6 +429,21 @@ function App() {
           />
         </ErrorBoundary>
 
+        {showWorldAxes && !showStructureTree && (
+          <div className="axis-legend" aria-label="World axis color legend">
+            <div className="axis-legend-title">World Axes / 世界坐标轴</div>
+            <div className="axis-legend-item">
+              <span className="axis-legend-swatch axis-x" aria-hidden="true" /> X — Red / 红色
+            </div>
+            <div className="axis-legend-item">
+              <span className="axis-legend-swatch axis-y" aria-hidden="true" /> Y — Green / 绿色
+            </div>
+            <div className="axis-legend-item">
+              <span className="axis-legend-swatch axis-z" aria-hidden="true" /> Z — Blue / 蓝色
+            </div>
+          </div>
+        )}
+
         {/* Floating Toggle Buttons */}
         {robot && (
           <>

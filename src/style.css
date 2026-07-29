@@ -156,6 +156,47 @@ canvas {
     overflow-wrap: anywhere;
 }
 
+.axis-legend {
+    position: absolute;
+    right: 1rem;
+    bottom: 1rem;
+    z-index: 100;
+    min-width: 152px;
+    padding: 0.65rem 0.75rem;
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    border-radius: 6px;
+    background: rgba(22, 28, 31, 0.88);
+    color: #e8ecef;
+    font-size: 0.75rem;
+    line-height: 1.65;
+    text-align: left;
+    pointer-events: none;
+}
+
+.axis-legend-title {
+    margin-bottom: 0.25rem;
+    color: #ffffff;
+    font-size: 0.8rem;
+    font-weight: 600;
+}
+
+.axis-legend-item {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+}
+
+.axis-legend-swatch {
+    width: 0.6rem;
+    height: 0.6rem;
+    border-radius: 50%;
+    flex: 0 0 auto;
+}
+
+.axis-x { background: #ff3b30; }
+.axis-y { background: #34c759; }
+.axis-z { background: #0a84ff; }
+
 .controls-container h3 {
     margin-top: 0;
 }
