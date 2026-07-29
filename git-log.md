@@ -3,6 +3,16 @@
 - 由于日志可能过长，你不用全部阅读，仅需阅读部分内容，你可以学习仿照相关的格式
 - 每次将新的日志放置在开头，也就是此行说明的下面（防止上下文爆炸）
 
+## [2026-07-29] fix: normalize camera framing across model formats
+
+**commit summary**
+fix: normalize camera framing across model formats
+
+**description**
+Adapt the camera near and far clipping planes to the OrbitControls viewing distance so close STL inspection no longer clips nearby faces while preserving depth-buffer precision. Reframe every newly loaded model, including URDF and Xacro, instead of only standalone CAD files so switching formats cannot inherit an unsuitable camera distance. The clipping update uses a small threshold to avoid unnecessary projection-matrix updates during rendering. Typecheck, lint, and all 20 unit tests pass.
+
+根据 OrbitControls 的观察距离动态调整相机近远裁剪面，使 STL 近距离查看不再裁掉靠近镜头的面，同时保持深度缓冲精度。所有新加载模型（包括 URDF 与 Xacro）都会统一自动取景，而不再仅对独立 CAD 文件生效，避免切换格式时继承不合适的相机距离。裁剪面更新设有小阈值，避免渲染过程中不必要地更新投影矩阵。类型检查、ESLint 和全部 20 项单元测试均已通过。
+
 ## [2026-07-29] feat: add standalone STL and STEP model viewer
 
 **commit summary**

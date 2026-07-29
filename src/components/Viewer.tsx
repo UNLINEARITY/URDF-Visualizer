@@ -29,7 +29,7 @@ interface ViewerProps {
   measurementPoints: THREE.Vector3[];
   onMeasurementClick: (point: THREE.Vector3) => void;
   onMeasurementRemove: (index: number) => void;
-  /** Reframe the camera after loading a standalone mesh or CAD model. */
+  /** Reframe the camera after loading a model. */
   autoFrame?: boolean;
 }
 
@@ -301,6 +301,26 @@ const Viewer: React.FC<ViewerProps> = (props) => {
     controls.enableDamping = true;
     controlsRef.current = controls;
 
+    const updateCameraClipping = () => {
+      const distance = camera.position.distanceTo(controls.target);
+      if (!Number.isFinite(distance) || distance <= 0) return;
+
+      // Keep the near plane close enough for inspection while maintaining a
+      // stable near/far ratio for the depth buffer.
+      const near = Math.max(0.00001, distance / 100);
+      const far = Math.max(10, distance * 100);
+      if (
+        Math.abs(camera.near - near) < near * 0.01 &&
+        Math.abs(camera.far - far) < far * 0.01
+      ) {
+        return;
+      }
+
+      camera.near = near;
+      camera.far = far;
+      camera.updateProjectionMatrix();
+    };
+
     // LIGHTING CONFIGURATION FOR BETTER SHADOWS
     // 1. Ambient Light: Reduced intensity to make shadows darker
     scene.add(new THREE.AmbientLight(0xffffff, 0.4));
@@ -348,6 +368,7 @@ const Viewer: React.FC<ViewerProps> = (props) => {
     const animate = () => {
       animationFrameId = requestAnimationFrame(animate);
       controls.update();
+      updateCameraClipping();
 
       // Only push live matrix updates when the popup is actually visible,
       // and throttle to ~15Hz to avoid per-frame React state churn.

@@ -408,7 +408,7 @@ function App() {
         <ErrorBoundary>
           <Viewer
             robot={displayedModel}
-            autoFrame={!robot && standaloneModel.model !== null}
+            autoFrame={displayedModel !== null}
             isCtrlPressed={isCtrlPressed}
             selectedLinkName={linkSelection.name}
             selectedJoint={jointSelection.visible ? jointSelection.joint : null}
