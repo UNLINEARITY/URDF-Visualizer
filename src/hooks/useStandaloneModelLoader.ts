@@ -9,6 +9,7 @@ export interface StandaloneModelLoaderResult {
   error: string | null;
   currentFileName: string;
   loadFile: (file: File) => Promise<void>;
+  loadSampleFile: (filename: string) => Promise<void>;
   clear: () => void;
 }
 
@@ -39,6 +40,29 @@ export function useStandaloneModelLoader(): StandaloneModelLoaderResult {
     }
   }, []);
 
+  const loadSampleFile = useCallback(
+    async (filename: string) => {
+      const loadId = ++loadIdRef.current; // invalidate any in-flight load immediately
+      setLoading(true);
+      setError(null);
+      try {
+        const res = await fetch(filename);
+        if (loadId !== loadIdRef.current) return;
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const content = await res.arrayBuffer();
+        if (loadId !== loadIdRef.current) return;
+        const file = new File([content], filename.split('/').pop() || filename);
+        await loadFile(file); // loadFile owns the loading state from here on
+      } catch (err) {
+        if (loadId !== loadIdRef.current) return;
+        console.error('Standalone sample loading error:', err);
+        setError(err instanceof Error ? err.message : 'Failed to load sample model.');
+        setLoading(false);
+      }
+    },
+    [loadFile],
+  );
+
   const clear = useCallback(() => {
     loadIdRef.current += 1;
     setModel(null);
@@ -46,5 +70,5 @@ export function useStandaloneModelLoader(): StandaloneModelLoaderResult {
     setError(null);
   }, []);
 
-  return { model, loading, error, currentFileName, loadFile, clear };
+  return { model, loading, error, currentFileName, loadFile, loadSampleFile, clear };
 }

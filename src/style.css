@@ -215,6 +215,12 @@ canvas {
     margin-right: 0.5rem;
 }
 
+.option-item input[type="range"] {
+    width: 100%;
+    margin: 0.25rem 0;
+    accent-color: #4caf50;
+}
+
 .info-popup-container {
     position: absolute;
     min-width: 250px;

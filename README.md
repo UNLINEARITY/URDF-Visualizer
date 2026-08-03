@@ -74,7 +74,7 @@ This project solves the challenge of visualizing ROS robot models in a browser e
 
 1.  **Sample Library**: Select a pre-configured robot (e.g., Unitree Go2, Fourier G1) from the dropdown menu.
     **样本库**: 从下拉菜单中选择预配置的机器人（如 Unitree Go2, G1）。
-2.  **Standalone CAD File**: Click **View STL / STEP / STP** or drop one `.stl`, `.step`, or `.stp` file onto the viewer. The camera frames the model automatically; grid, shadow, wireframe, and measurement tools remain available.
+2.  **Standalone CAD File**: Click **View STL / STEP / STP / PLY** or drop one `.stl`, `.step`, `.stp`, or `.ply` file onto the viewer. The camera frames the model automatically; grid, shadow, wireframe, and measurement tools remain available. PLY files render as colored point clouds (auto-sized, adjustable via the Point Size slider) or as meshes when they contain faces.
 3.  **Local Folder Upload**:
     **本地文件夹上传**:
     - Click **Select Project Folder** to upload a root folder containing your robot description (URDFs and Meshes).

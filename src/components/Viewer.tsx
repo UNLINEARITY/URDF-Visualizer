@@ -18,6 +18,8 @@ interface ViewerProps {
   showJointAxes: boolean;
   showShadows: boolean;
   wireframe: boolean;
+  /** Point-cloud point size multiplier (1 = the auto-computed size from the loader). */
+  pointSize?: number;
   onSelectionUpdate: (
     name: string | null,
     matrix: THREE.Matrix4 | null,
@@ -59,6 +61,7 @@ const Viewer: React.FC<ViewerProps> = (props) => {
     showJointAxes,
     showShadows,
     wireframe,
+    pointSize = 1,
     onSelectionUpdate,
     onJointSelect,
     onJointChange,
@@ -884,6 +887,17 @@ const Viewer: React.FC<ViewerProps> = (props) => {
       };
     }
   }, [robot, autoFrame]);
+
+  // 2b. Point-cloud point size — apply the multiplier on top of the loader's auto size.
+  useEffect(() => {
+    if (!robot) return;
+    robot.traverse((obj) => {
+      if (obj instanceof THREE.Points) {
+        (obj.material as THREE.PointsMaterial).size =
+          (obj.userData.basePointSize as number) * pointSize;
+      }
+    });
+  }, [robot, pointSize]);
 
   // 3. Display Toggles
   useEffect(() => {

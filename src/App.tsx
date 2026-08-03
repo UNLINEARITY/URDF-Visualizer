@@ -61,6 +61,9 @@ function App() {
 
   const displayedModel = robot ?? (standaloneModel.model as unknown as typeof robot);
 
+  // Sample dropdown highlights whichever loader last loaded a sample.
+  const activeSamplePath = currentFilePath || standaloneModel.currentFileName;
+
   const { jointValues, setJointValue, resetJoints } = useJointState(robot);
   const { isAnimating, toggleAnimation } = useJointAnimation(robot, setJointValue);
 
@@ -71,6 +74,7 @@ function App() {
   const [showJointAxes, setShowJointAxes] = useState(false);
   const [showShadows, setShowShadows] = useState(false);
   const [wireframe, setWireframe] = useState(false);
+  const [pointSize, setPointSize] = useState(1); // point-cloud point size multiplier
   const [showStructureTree, setShowStructureTree] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
@@ -232,8 +236,19 @@ function App() {
 
   const handleSampleSelectChange = useCallback(
     (event: React.ChangeEvent<HTMLSelectElement>) => {
-      standaloneModel.clear();
-      loadSample(event.target.value);
+      const value = event.target.value;
+      if (!value) {
+        standaloneModel.clear();
+        loadSample('');
+        return;
+      }
+      if (value.toLowerCase().endsWith('.ply')) {
+        loadSample(''); // clear any URDF robot first
+        void standaloneModel.loadSampleFile(value);
+      } else {
+        standaloneModel.clear();
+        loadSample(value);
+      }
     },
     [loadSample, standaloneModel],
   );
@@ -244,7 +259,10 @@ function App() {
       const file = files.length === 1 ? files[0] : undefined;
       const extension = file?.name.split('.').pop()?.toLowerCase();
 
-      if (file && (extension === 'stl' || extension === 'step' || extension === 'stp')) {
+      if (
+        file &&
+        (extension === 'stl' || extension === 'step' || extension === 'stp' || extension === 'ply')
+      ) {
         handleDragLeave(event);
         loadSample('');
         void standaloneModel.loadFile(file);
@@ -266,7 +284,7 @@ function App() {
     >
       {isDragActive && (
         <div className="drag-overlay">
-          <h3>Drop a Robot Project or STL / STEP / STP File Here</h3>
+          <h3>Drop a Robot Project or STL / STEP / STP / PLY File Here</h3>
         </div>
       )}
 
@@ -300,7 +318,7 @@ function App() {
           <p>Load a robot project or a standalone CAD model.</p>
           <select
             onChange={handleSampleSelectChange}
-            value={sampleFiles.includes(currentFilePath) ? currentFilePath : ''}
+            value={sampleFiles.includes(activeSamplePath) ? activeSamplePath : ''}
             className="file-input"
           >
             <option value="">-- Select a Sample --</option>
@@ -323,17 +341,21 @@ function App() {
           />
 
           <label htmlFor="model-upload" className="custom-file-upload btn-model">
-            <Box size={16} /> View STL / STEP / STP
+            <Box size={16} /> View STL / STEP / STP / PLY
           </label>
           <input
             id="model-upload"
             type="file"
-            accept=".stl,.step,.stp"
+            accept=".stl,.step,.stp,.ply"
             onChange={handleModelFileInputChange}
             className="file-input-hidden"
           />
           {standaloneModel.currentFileName && (
-            <p className="standalone-model-name">Viewing: {standaloneModel.currentFileName}</p>
+            <p className="standalone-model-name">
+              Viewing: {standaloneModel.currentFileName}
+              {standaloneModel.model?.userData.isPointCloud === true &&
+                ` • ${Number(standaloneModel.model.userData.pointCount).toLocaleString()} points`}
+            </p>
           )}
 
           <label htmlFor="folder-upload" className="custom-file-upload btn-folder">
@@ -358,6 +380,9 @@ function App() {
             setShowJointAxes={setShowJointAxes}
             wireframe={wireframe}
             setWireframe={setWireframe}
+            pointSize={pointSize}
+            setPointSize={setPointSize}
+            showPointSizeControl={displayedModel?.userData.isPointCloud === true}
           />
           <hr />
           {robot && (
@@ -419,6 +444,7 @@ function App() {
             showJointAxes={showJointAxes}
             showShadows={showShadows}
             wireframe={wireframe}
+            pointSize={pointSize}
             onSelectionUpdate={handleSelectionUpdate}
             onJointSelect={handleJointSelect}
             onJointChange={setJointValue}

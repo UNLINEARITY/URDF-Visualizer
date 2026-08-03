@@ -11,6 +11,9 @@ interface DisplayOptionsProps {
   setShowJointAxes: (v: boolean) => void;
   wireframe: boolean;
   setWireframe: (v: boolean) => void;
+  pointSize: number;
+  setPointSize: (v: number) => void;
+  showPointSizeControl: boolean;
 }
 
 const DisplayOptions: React.FC<DisplayOptionsProps> = (props) => {
@@ -25,6 +28,9 @@ const DisplayOptions: React.FC<DisplayOptionsProps> = (props) => {
     setShowJointAxes,
     wireframe,
     setWireframe,
+    pointSize,
+    setPointSize,
+    showPointSizeControl,
   } = props;
 
   return (
@@ -50,6 +56,20 @@ const DisplayOptions: React.FC<DisplayOptionsProps> = (props) => {
         <input type="checkbox" id="wireframe" checked={wireframe} onChange={(e) => setWireframe(e.target.checked)} />
         <label htmlFor="wireframe">Enable Wireframe (F)</label>
       </div>
+      {showPointSizeControl && (
+        <div className="option-item">
+          <label htmlFor="pointSize">Point Size: {pointSize.toFixed(1)}x</label>
+          <input
+            type="range"
+            id="pointSize"
+            min={0.1}
+            max={10}
+            step={0.1}
+            value={pointSize}
+            onChange={(e) => setPointSize(Number(e.target.value))}
+          />
+        </div>
+      )}
     </div>
   );
 };

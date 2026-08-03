@@ -30,7 +30,7 @@ function isEntryFile(filename) {
     const lower = filename.toLowerCase();
     
     // Valid extensions
-    if (!lower.endsWith('.urdf') && !lower.endsWith('.xacro')) return false;
+    if (!lower.endsWith('.urdf') && !lower.endsWith('.xacro') && !lower.endsWith('.ply')) return false;
     
     const relPath = path.relative(PUBLIC_DIR, filename);
     // Note: On Windows relPath might use backslashes, split by path.sep covers both

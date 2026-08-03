@@ -7,6 +7,7 @@
     "dev": "npm run scan && vite",
     "build": "npm run scan && tsc && vite build",
     "scan": "node scripts/generate_manifest.js",
+    "generate:ply": "node scripts/generate_sample_point_cloud.js",
     "preview": "vite preview",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
