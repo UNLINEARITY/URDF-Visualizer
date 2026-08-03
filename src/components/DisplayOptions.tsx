@@ -13,6 +13,8 @@ interface DisplayOptionsProps {
   setWireframe: (v: boolean) => void;
   pointSize: number;
   setPointSize: (v: number) => void;
+  pointDensity: number;
+  setPointDensity: (v: number) => void;
   showPointSizeControl: boolean;
 }
 
@@ -30,6 +32,8 @@ const DisplayOptions: React.FC<DisplayOptionsProps> = (props) => {
     setWireframe,
     pointSize,
     setPointSize,
+    pointDensity,
+    setPointDensity,
     showPointSizeControl,
   } = props;
 
@@ -57,18 +61,32 @@ const DisplayOptions: React.FC<DisplayOptionsProps> = (props) => {
         <label htmlFor="wireframe">Enable Wireframe (F)</label>
       </div>
       {showPointSizeControl && (
-        <div className="option-item">
-          <label htmlFor="pointSize">Point Size: {pointSize.toFixed(1)}x</label>
-          <input
-            type="range"
-            id="pointSize"
-            min={0.1}
-            max={10}
-            step={0.1}
-            value={pointSize}
-            onChange={(e) => setPointSize(Number(e.target.value))}
-          />
-        </div>
+        <>
+          <div className="option-item">
+            <label htmlFor="pointSize">Point Size: {pointSize.toFixed(1)}x</label>
+            <input
+              type="range"
+              id="pointSize"
+              min={0.1}
+              max={10}
+              step={0.1}
+              value={pointSize}
+              onChange={(e) => setPointSize(Number(e.target.value))}
+            />
+          </div>
+          <div className="option-item">
+            <label htmlFor="pointDensity">Point Density: {Math.round(pointDensity * 100)}%</label>
+            <input
+              type="range"
+              id="pointDensity"
+              min={10}
+              max={100}
+              step={5}
+              value={Math.round(pointDensity * 100)}
+              onChange={(e) => setPointDensity(Number(e.target.value) / 100)}
+            />
+          </div>
+        </>
       )}
     </div>
   );

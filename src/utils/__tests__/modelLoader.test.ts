@@ -1,6 +1,16 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import * as THREE from 'three';
 import { loadStandaloneModel } from '../modelLoader';
+
+// Web Worker (new Worker) is not available in jsdom — route parsePlyFile to the
+// synchronous fallback so the group-building logic is still exercised.
+vi.mock('../plyLoader', async () => {
+  const actual = await vi.importActual<typeof import('../plyLoader')>('../plyLoader');
+  return {
+    ...actual,
+    parsePlyFile: (buffer: ArrayBuffer) => Promise.resolve(actual.parsePlySync(buffer)),
+  };
+});
 
 // jsdom's File may not implement .arrayBuffer(); mirror the browser API for tests.
 // Note: TextEncoder().encode().buffer comes from Node's realm and fails the
@@ -85,6 +95,10 @@ describe('loadStandaloneModel — PLY', () => {
     expect(material.vertexColors).toBe(true);
     expect(material.size).toBeGreaterThan(0);
     expect(points.userData.basePointSize).toBe(material.size);
+
+    // Full arrays retained for the point-density control.
+    expect(points.userData.fullPosition).toBeInstanceOf(Float32Array);
+    expect((points.userData.fullPosition as Float32Array).length).toBe(15); // 5 points × 3
   });
 
   it('uses a neutral color for an uncolored point cloud', async () => {

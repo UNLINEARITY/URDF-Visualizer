@@ -75,6 +75,7 @@ function App() {
   const [showShadows, setShowShadows] = useState(false);
   const [wireframe, setWireframe] = useState(false);
   const [pointSize, setPointSize] = useState(1); // point-cloud point size multiplier
+  const [pointDensity, setPointDensity] = useState(1); // point-cloud density (0-1)
   const [showStructureTree, setShowStructureTree] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
@@ -355,6 +356,9 @@ function App() {
               Viewing: {standaloneModel.currentFileName}
               {standaloneModel.model?.userData.isPointCloud === true &&
                 ` • ${Number(standaloneModel.model.userData.pointCount).toLocaleString()} points`}
+              {standaloneModel.model?.userData.isPointCloud === true &&
+                pointDensity < 1 &&
+                ` (${Math.round(pointDensity * 100)}% shown)`}
             </p>
           )}
 
@@ -382,6 +386,8 @@ function App() {
             setWireframe={setWireframe}
             pointSize={pointSize}
             setPointSize={setPointSize}
+            pointDensity={pointDensity}
+            setPointDensity={setPointDensity}
             showPointSizeControl={displayedModel?.userData.isPointCloud === true}
           />
           <hr />
@@ -445,6 +451,7 @@ function App() {
             showShadows={showShadows}
             wireframe={wireframe}
             pointSize={pointSize}
+            pointDensity={pointDensity}
             onSelectionUpdate={handleSelectionUpdate}
             onJointSelect={handleJointSelect}
             onJointChange={setJointValue}

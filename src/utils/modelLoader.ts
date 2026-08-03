@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { STLLoader } from 'three/examples/jsm/loaders/STLLoader.js';
-import { PLYLoader } from 'three/examples/jsm/loaders/PLYLoader.js';
 import occtWasmUrl from 'occt-import-js/dist/occt-import-js.wasm?url';
+import { parsePlyFile } from './plyLoader';
 
 const DEFAULT_MATERIAL = new THREE.MeshStandardMaterial({
   color: 0xb8c4d1,
@@ -13,6 +13,8 @@ const DEFAULT_MATERIAL = new THREE.MeshStandardMaterial({
 // point size stays consistent regardless of the model's units (meters vs millimeters).
 const POINT_CLOUD_SIZE_DIVISOR = 150;
 const POINT_CLOUD_MIN_SIZE = 0.0005;
+// Above this count we warn and suggest the point-density control to reduce memory/GPU load.
+const LARGE_POINT_CLOUD_WARN = 3_000_000;
 
 function createMaterial(color?: [number, number, number]): THREE.MeshStandardMaterial {
   return color
@@ -81,9 +83,10 @@ async function createStepModel(file: File, buffer: ArrayBuffer): Promise<THREE.G
   return model;
 }
 
-function createPlyModel(file: File, buffer: ArrayBuffer): THREE.Group {
-  const geometry = new PLYLoader().parse(buffer);
-  // PLYLoader already computes the bounding sphere in postProcess(); the guard is defensive.
+async function createPlyModel(file: File, buffer: ArrayBuffer): Promise<THREE.Group> {
+  // Parsed on a Web Worker (transferable, zero-copy) so million-point files
+  // never block the main thread; parsePlyFile falls back to sync where needed.
+  const geometry = await parsePlyFile(buffer);
   if (geometry.boundingSphere === null) geometry.computeBoundingSphere();
 
   const model = new THREE.Group();
@@ -105,9 +108,18 @@ function createPlyModel(file: File, buffer: ArrayBuffer): THREE.Group {
     points.userData.basePointSize = size; // base for the point-size slider multiplier
     points.userData.isPointCloud = true;
     points.userData.pointCount = geometry.getAttribute('position').count;
+    // Full arrays retained so the point-density control can subsample and restore.
+    points.userData.fullPosition = geometry.getAttribute('position').array;
+    points.userData.fullColor = geometry.getAttribute('color')?.array ?? null;
     model.add(points);
     model.userData.isPointCloud = true;
     model.userData.pointCount = points.userData.pointCount;
+    if (points.userData.pointCount > LARGE_POINT_CLOUD_WARN) {
+      console.warn(
+        `Large point cloud (${points.userData.pointCount.toLocaleString()} points); ` +
+          'use the Point Density control to reduce GPU/memory load.',
+      );
+    }
   } else {
     // PLY with faces: mesh path, mirrors the STL pattern.
     if (!geometry.getAttribute('normal')) geometry.computeVertexNormals();

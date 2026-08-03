@@ -9,7 +9,9 @@ const __dirname = path.dirname(__filename);
 const PROJECT_ROOT = path.resolve(__dirname, '..');
 const OUTPUT = path.join(PROJECT_ROOT, 'public', 'sample_point_cloud.ply');
 
-const COUNT = 20000;
+// Overridable count so large files can be generated for performance testing,
+// e.g. PLY_COUNT=1000000 npm run generate:ply
+const COUNT = Number(process.env.PLY_COUNT) || 20000;
 const RADIUS = 1.0;
 const GOLDEN_ANGLE = Math.PI * (3 - Math.sqrt(5));
 

@@ -4,6 +4,7 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import type { URDFRobot, URDFJoint, URDFLink } from 'urdf-loader';
 import { disposeObject3D } from '../utils/robotLoader';
 import { isURDFLink, isURDFJoint, findParentLink, isHelperObject } from '../utils/urdfTypes';
+import { applyPointDensity } from '../utils/pointCloud';
 
 interface ViewerProps {
   robot: URDFRobot | null;
@@ -20,6 +21,8 @@ interface ViewerProps {
   wireframe: boolean;
   /** Point-cloud point size multiplier (1 = the auto-computed size from the loader). */
   pointSize?: number;
+  /** Point-cloud density (0–1) for subsampling; 1 renders the full cloud. */
+  pointDensity?: number;
   onSelectionUpdate: (
     name: string | null,
     matrix: THREE.Matrix4 | null,
@@ -62,6 +65,7 @@ const Viewer: React.FC<ViewerProps> = (props) => {
     showShadows,
     wireframe,
     pointSize = 1,
+    pointDensity = 1,
     onSelectionUpdate,
     onJointSelect,
     onJointChange,
@@ -134,6 +138,9 @@ const Viewer: React.FC<ViewerProps> = (props) => {
   const onJointChangeRef = useRef(onJointChange);
   const isCtrlPressedRef = useRef(isCtrlPressed);
   const robotRef = useRef<URDFRobot | null>(robot);
+  // True only for real URDF models — standalone STL/STEP/PLY have no selectable
+  // links/joints, so we skip per-frame raycasting for them entirely (O(n) on point clouds).
+  const isURDFModelRef = useRef(robot ? robot.isURDFRobot === true : false);
   const isMeasurementModeRef = useRef(isMeasurementMode);
   const onMeasurementClickRef = useRef(onMeasurementClick);
   const onMeasurementRemoveRef = useRef(onMeasurementRemove);
@@ -155,6 +162,7 @@ const Viewer: React.FC<ViewerProps> = (props) => {
   }, [isCtrlPressed]);
   useEffect(() => {
     robotRef.current = robot;
+    isURDFModelRef.current = robot ? robot.isURDFRobot === true : false;
   }, [robot]);
   useEffect(() => {
     isMeasurementModeRef.current = isMeasurementMode;
@@ -423,6 +431,9 @@ const Viewer: React.FC<ViewerProps> = (props) => {
 
     const getLinkFromEvent = (event: MouseEvent): URDFLink | null => {
       if (!mountRef.current || !camera || !robotRef.current) return null;
+      // Standalone STL/STEP/PLY models have no links — skip the per-mousemove
+      // raycast entirely (O(n) on multi-million-point clouds).
+      if (!isURDFModelRef.current) return null;
 
       const rect = mountRef.current.getBoundingClientRect();
       const x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
@@ -463,6 +474,10 @@ const Viewer: React.FC<ViewerProps> = (props) => {
       if (isCtrlPressedRef.current && !isMeasurementModeRef.current) return;
 
       if (!mountRef.current || !camera || !robotRef.current) return;
+
+      // Standalone models have no selectable links/joints; only raycast them in
+      // measurement mode so points can still be placed on the cloud.
+      if (!isURDFModelRef.current && !isMeasurementModeRef.current) return;
 
       const rect = mountRef.current.getBoundingClientRect();
       const ndcX = ((event.clientX - rect.left) / rect.width) * 2 - 1;
@@ -719,6 +734,10 @@ const Viewer: React.FC<ViewerProps> = (props) => {
         }
       }
 
+      // Standalone models have no selectable links/joints — skip the robot raycast
+      // (measurement-point removal above stays available for all models).
+      if (!isURDFModelRef.current) return;
+
       // Raycast ONLY against the robot model to avoid hitting the grid/axes
       const intersects = raycaster.intersectObject(robotRef.current, true);
 
@@ -898,6 +917,14 @@ const Viewer: React.FC<ViewerProps> = (props) => {
       }
     });
   }, [robot, pointSize]);
+
+  // 2c. Point-cloud density — subsample the geometry or restore the full cloud.
+  useEffect(() => {
+    if (!robot) return;
+    robot.traverse((obj) => {
+      if (obj instanceof THREE.Points) applyPointDensity(obj, pointDensity);
+    });
+  }, [robot, pointDensity]);
 
   // 3. Display Toggles
   useEffect(() => {
