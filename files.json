@@ -9,5 +9,6 @@
   "go2/urdf/go2.urdf",
   "go2/urdf/go2_modified.urdf",
   "material_library/main.xacro",
+  "sample_point_cloud.ply",
   "spider_robot/main.xacro"
 ]
